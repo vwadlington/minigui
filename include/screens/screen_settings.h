@@ -1,3 +1,4 @@
 #pragma once
 #include "lvgl.h"
-lv_obj_t* create_screen_settings(void);
+
+void create_screen_settings(lv_obj_t *parent);
