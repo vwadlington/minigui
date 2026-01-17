@@ -19,11 +19,6 @@ typedef enum {
 } minigui_screen_t;
 
 /**
- * @brief Callback type for providing log data to the GUI.
- */
-typedef void (*minigui_log_provider_t)(const char *filter, lv_obj_t *table, uint16_t max_rows);
-
-/**
  * @brief Callback type for brightness control
  */
 typedef void (*minigui_brightness_cb_t)(uint8_t brightness);
@@ -55,16 +50,6 @@ void minigui_register_brightness_cb(minigui_brightness_cb_t cb);
  * @brief Set screen brightness (proxies to registered callback)
  */
 void minigui_set_brightness(uint8_t brightness);
-
-/**
- * @brief Registers a data source for the log screen.
- */
-void minigui_register_log_provider(minigui_log_provider_t provider_cb);
-
-/**
- * @brief Internal helper to retrieve the registered log provider.
- */
-minigui_log_provider_t minigui_get_log_provider(void);
 
 /**
  * @brief Internal helper to get the main content area (stage).

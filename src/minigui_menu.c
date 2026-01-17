@@ -9,6 +9,7 @@ static lv_obj_t *menu_blocker = NULL;
  * Closes the menu.
  */
 static void blocker_cb(lv_event_t *e) {
+    LV_LOG_USER("Menu closed via background dimmer");
     minigui_menu_toggle();
 }
 
@@ -18,7 +19,9 @@ static void blocker_cb(lv_event_t *e) {
 static void nav_btn_cb(lv_event_t *e) {
     minigui_screen_t target = (minigui_screen_t)(uintptr_t)lv_event_get_user_data(e);
     
-    LV_LOG_INFO("Menu: Navigating to screen %d", target);
+    // Use LV_LOG_USER for user actions - perfect separation!
+    const char* screen_names[] = {"Home", "Logs", "Settings"};
+    LV_LOG_USER("User navigating to %s screen", screen_names[target]);
     
     // Switch the content area screen
     minigui_switch_screen(target);

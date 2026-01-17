@@ -12,7 +12,6 @@ static lv_obj_t *lbl_title = NULL;
 
 // Callback hooks
 static minigui_brightness_cb_t brightness_cb = NULL;
-static minigui_log_provider_t log_provider_cb = NULL;
 
 // Screen Creator Array
 static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
@@ -23,6 +22,7 @@ static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
 
 // Event wrapper to open the menu
 static void menu_btn_event_cb(lv_event_t * e) {
+    LV_LOG_USER("Hamburger menu toggled");
     minigui_menu_toggle();
 }
 
@@ -125,6 +125,4 @@ void minigui_switch_screen(minigui_screen_t screen_type) {
 // --- Bridge Functions ---
 void minigui_register_brightness_cb(minigui_brightness_cb_t cb) { brightness_cb = cb; }
 void minigui_set_brightness(uint8_t brightness) { if (brightness_cb) brightness_cb(brightness); }
-void minigui_register_log_provider(minigui_log_provider_t provider_cb) { log_provider_cb = provider_cb; }
-minigui_log_provider_t minigui_get_log_provider(void) { return log_provider_cb; }
 lv_obj_t *minigui_get_content_area(void) { return content_area; }

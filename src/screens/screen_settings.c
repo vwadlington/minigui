@@ -4,6 +4,10 @@
 static void slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = lv_event_get_target(e);
     int brightness = (int)lv_slider_get_value(slider);
+    
+    // Use LV_LOG_USER for settings changes
+    LV_LOG_USER("Brightness changed to %d%%", brightness);
+    
     minigui_set_brightness(brightness);
 }
 
