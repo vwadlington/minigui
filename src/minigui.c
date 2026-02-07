@@ -3,15 +3,19 @@
 #include "screens/screen_home.h"
 #include "screens/screen_logs.h"
 #include "screens/screen_settings.h"
+#include <time.h>
+#include <stdio.h>
 
 // UI Structure Globals
-static lv_obj_t *main_container = NULL; 
-static lv_obj_t *status_bar = NULL;    
-static lv_obj_t *content_area = NULL;  
+static lv_obj_t *main_container = NULL;
+static lv_obj_t *status_bar = NULL;
+static lv_obj_t *content_area = NULL;
 static lv_obj_t *lbl_title = NULL;
+static lv_obj_t *lbl_clock = NULL;
 
 // Callback hooks
 static minigui_brightness_cb_t brightness_cb = NULL;
+static minigui_time_provider_t global_time_provider = NULL;
 
 // Screen Creator Array
 static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
@@ -19,6 +23,34 @@ static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
     [MINIGUI_SCREEN_LOGS]     = create_screen_logs,
     [MINIGUI_SCREEN_SETTINGS] = create_screen_settings
 };
+
+// ============================================================================
+// PRIVATE HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Updates the clock label with current system time.
+ */
+static void update_clock_cb(lv_timer_t *timer) {
+    (void)timer;
+    if (!lbl_clock) return;
+
+    char buf[32];
+
+    // 1. Try the registered time provider first
+    if (global_time_provider) {
+        global_time_provider(buf, sizeof(buf));
+    }
+    // 2. Fall back to standard C time library
+    else {
+        time_t now = time(NULL);
+        struct tm *tm_info = localtime(&now);
+        // Format: "Sat 02/07 12:08:45"
+        strftime(buf, sizeof(buf), "%a %m/%d %H:%M:%S", tm_info);
+    }
+
+    lv_label_set_text(lbl_clock, buf);
+}
 
 // Event wrapper to open the menu
 static void menu_btn_event_cb(lv_event_t * e) {
@@ -41,7 +73,7 @@ static void sync_square_size_cb(lv_event_t * e) {
 void minigui_init(void) {
     // Using LVGL native logging instead of ESP_LOG
     LV_LOG_INFO("MiniGUI: Initializing nested flex layout...");
-    
+
     minigui_menu_init();
 
     lv_obj_t *scr = lv_screen_active();
@@ -66,11 +98,12 @@ void minigui_init(void) {
     lv_obj_set_style_border_width(status_bar, 0, 0);
     lv_obj_set_style_radius(status_bar, 0, 0);
     lv_obj_set_style_pad_all(status_bar, 0, 0);
+    lv_obj_set_style_pad_right(status_bar, 15, 0); // Padding for the clock on the right
     lv_obj_set_scrollbar_mode(status_bar, LV_SCROLLBAR_MODE_OFF);
 
     // 3. HAMBURGER BUTTON
     lv_obj_t *btn_menu = lv_button_create(status_bar);
-    lv_obj_set_height(btn_menu, lv_pct(100)); 
+    lv_obj_set_height(btn_menu, lv_pct(100));
     lv_obj_add_event_cb(btn_menu, sync_square_size_cb, LV_EVENT_SIZE_CHANGED, NULL);
     lv_obj_set_style_radius(btn_menu, 0, 0);
     lv_obj_set_style_bg_color(btn_menu, lv_color_hex(0x222222), 0);
@@ -84,7 +117,7 @@ void minigui_init(void) {
     lv_obj_center(label_menu);
     lv_obj_add_event_cb(btn_menu, menu_btn_event_cb, LV_EVENT_CLICKED, NULL);
 
-    // 4. TITLE
+    // 4. TITLE (Flex grow will push neighbors aside)
     lbl_title = lv_label_create(status_bar);
     lv_label_set_text(lbl_title, "Dashboard");
     lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_28, 0);
@@ -92,7 +125,21 @@ void minigui_init(void) {
     lv_obj_set_flex_grow(lbl_title, 1);
     lv_obj_set_style_text_align(lbl_title, LV_TEXT_ALIGN_CENTER, 0);
 
-    // 5. CONTENT AREA
+    // 5. CLOCK (Placed after title, will be on the right)
+    lbl_clock = lv_label_create(status_bar);
+    lv_obj_set_style_text_font(lbl_clock, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(lbl_clock, lv_color_hex(0xAAAAAA), 0);
+    lv_obj_set_width(lbl_clock, 180); // INCREASED WIDTH for longer date format
+    lv_obj_set_style_text_align(lbl_clock, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_style_margin_right(lbl_clock, 10, 0);
+
+    // Initial update
+    update_clock_cb(NULL);
+
+    // Create timer for 1s updates
+    lv_timer_create(update_clock_cb, 1000, NULL);
+
+    // 6. CONTENT AREA
     content_area = lv_obj_create(main_container);
     lv_obj_set_width(content_area, lv_pct(100));
     lv_obj_set_flex_grow(content_area, 1);
@@ -124,5 +171,12 @@ void minigui_switch_screen(minigui_screen_t screen_type) {
 
 // --- Bridge Functions ---
 void minigui_register_brightness_cb(minigui_brightness_cb_t cb) { brightness_cb = cb; }
+
+void minigui_set_time_provider(minigui_time_provider_t provider) {
+    global_time_provider = provider;
+    // Update immediately if possible
+    if (lbl_clock) update_clock_cb(NULL);
+}
+
 void minigui_set_brightness(uint8_t brightness) { if (brightness_cb) brightness_cb(brightness); }
 lv_obj_t *minigui_get_content_area(void) { return content_area; }

@@ -1,9 +1,9 @@
 #include "screens/screen_logs.h"
 #include "minigui.h"
-#include "app_bridge.h"
 #include "lvgl.h"
 #include <stdlib.h>  // For malloc/free
 #include <string.h>  // For strcpy, strcmp, etc.
+#include <time.h>    // For mock timestamps
 
 // ============================================================================
 // STATIC VARIABLES
@@ -13,13 +13,19 @@ static lv_obj_t *data_table = NULL;
 static lv_obj_t *filter_dropdown = NULL;
 static lv_obj_t *log_screen_parent = NULL; // Store the parent container
 
+static minigui_log_provider_t global_log_provider = NULL;
+
+void minigui_set_log_provider(minigui_log_provider_t provider) {
+    global_log_provider = provider;
+}
+
 // ============================================================================
 // PRIVATE HELPER FUNCTIONS
 // ============================================================================
 
 static void clear_table_cells(void) {
     if (!data_table) return;
-    
+
     // Clear all existing cells
     uint16_t row_count = lv_table_get_row_cnt(data_table);
     for (uint16_t row = 0; row < row_count; row++) {
@@ -30,36 +36,83 @@ static void clear_table_cells(void) {
     }
 }
 
+/**
+ * @brief Internal mock data provider for standalone UI development/simulator.
+ * This is only compiled if MINIGUI_USE_MOCK_LOGS is defined.
+ */
+static size_t internal_get_logs(minigui_log_entry_t *logs, size_t max_count, const char *filter) {
+#ifdef MINIGUI_USE_MOCK_LOGS
+    static const struct {
+        const char *src;
+        const char *lvl;
+        const char *msg;
+    } mock_data[] = {
+        {"LVGL", "INFO", "Standalone MiniGUI initialized"},
+        {"USER", "DEBUG", "Mock log provider active"},
+        {"ESP", "INFO", "System starting (simulator mode)"},
+        {"USER", "WARN", "External app_bridge not detected"},
+        {"LVGL", "DEBUG", "Table layout recalculated for 800px"},
+        {"USER", "INFO", "Iterating on standalone UI..."}
+    };
+
+    size_t count = sizeof(mock_data) / sizeof(mock_data[0]);
+    size_t added = 0;
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+
+    for (size_t i = 0; i < count && added < max_count; i++) {
+        if (filter && strcmp(filter, "ALL") != 0 && strcmp(mock_data[i].src, filter) != 0) continue;
+
+        strftime(logs[added].timestamp, sizeof(logs[added].timestamp), "%H:%M:%S", tm_info);
+        strncpy(logs[added].source, mock_data[i].src, sizeof(logs[added].source) - 1);
+        strncpy(logs[added].level, mock_data[i].lvl, sizeof(logs[added].level) - 1);
+        strncpy(logs[added].message, mock_data[i].msg, sizeof(logs[added].message) - 1);
+        added++;
+    }
+    return added;
+#else
+    (void)logs; (void)max_count; (void)filter;
+    return 0; // No logs if no provider and no mock
+#endif
+}
+
 static void update_table_with_logs(const char *filter) {
     if (!data_table) return;
-    
+
     LV_LOG_USER("Refreshing log table with filter: %s", filter ? filter : "ALL");
-    
+
     // Clear the table first for better UX
     clear_table_cells();
     lv_table_set_row_cnt(data_table, 1);
     lv_table_set_cell_value(data_table, 0, 3, "Loading...");
-    
+
     // Force LVGL to update immediately
     lv_refr_now(NULL);
-    
+
     // Allocate formatted logs on HEAP
-    formatted_log_entry_t *logs = (formatted_log_entry_t*)malloc(
-        APP_BRIDGE_MAX_LOGS * sizeof(formatted_log_entry_t));
-    
+    minigui_log_entry_t *logs = (minigui_log_entry_t*)malloc(
+        MINIGUI_MAX_LOGS * sizeof(minigui_log_entry_t));
+
     if (!logs) {
         LV_LOG_ERROR("Failed to allocate memory for logs");
         lv_table_set_row_cnt(data_table, 1);
         lv_table_set_cell_value(data_table, 0, 3, "Memory error");
         return;
     }
-    
-    // Get logs from bridge
-    size_t count = app_bridge_get_formatted_logs(logs, APP_BRIDGE_MAX_LOGS, filter);
-    
+
+    // 1. Try the external registered provider first
+    size_t count = 0;
+    if (global_log_provider) {
+        count = global_log_provider(logs, MINIGUI_MAX_LOGS, filter);
+    }
+    // 2. Fall back to internal mock (only compiled/active if MINIGUI_USE_MOCK_LOGS is defined)
+    else {
+        count = internal_get_logs(logs, MINIGUI_MAX_LOGS, filter);
+    }
+
     // Update table
     lv_table_set_row_cnt(data_table, count);
-    
+
     // Fill table with data
     for (size_t i = 0; i < count; i++) {
         lv_table_set_cell_value(data_table, i, 0, logs[i].timestamp);
@@ -67,7 +120,7 @@ static void update_table_with_logs(const char *filter) {
         lv_table_set_cell_value(data_table, i, 2, logs[i].level);
         lv_table_set_cell_value(data_table, i, 3, logs[i].message);
     }
-    
+
     // Show message if no logs
     if (count == 0) {
         lv_table_set_row_cnt(data_table, 1);
@@ -76,16 +129,16 @@ static void update_table_with_logs(const char *filter) {
         lv_table_set_cell_value(data_table, 0, 2, "filter");
         lv_table_set_cell_value(data_table, 0, 3, filter ? filter : "ALL");
     }
-    
+
     // CRITICAL: Free heap memory
     free(logs);
-    
+
     LV_LOG_USER("Log table refreshed with %d entries", count);
 }
 
 static void refresh_button_cb(lv_event_t * e) {
     (void)e; // Unused parameter
-    
+
     // Get current filter
     char filter_buf[16];
     if (filter_dropdown) {
@@ -93,7 +146,7 @@ static void refresh_button_cb(lv_event_t * e) {
     } else {
         strcpy(filter_buf, "ALL");
     }
-    
+
     // Refresh the table immediately
     update_table_with_logs(filter_buf);
 }
@@ -102,7 +155,7 @@ static void filter_event_cb(lv_event_t * e) {
     lv_obj_t * dropdown = lv_event_get_target(e);
     char filter_buf[16];
     lv_dropdown_get_selected_str(dropdown, filter_buf, sizeof(filter_buf));
-    
+
     update_table_with_logs(filter_buf);
 }
 
@@ -128,16 +181,16 @@ void refresh_log_table(const char *filter) {
  */
 static void calculate_table_layout(void) {
     if (!data_table || !log_screen_parent) return;
-    
+
     // Get the actual width available for the table
     int32_t parent_width = lv_obj_get_width(log_screen_parent);
     if (parent_width <= 0) {
         parent_width = 800; // Default for ESP32-S3-LCD-EV-Board2
     }
-    
+
     // Subtract padding (5px left + 5px right = 10px)
     int32_t available_width = parent_width - 10;
-    
+
     // Fixed column widths that fit 800px screen perfectly:
     // 800px - 10px padding = 790px available
     // Column breakdown:
@@ -146,7 +199,7 @@ static void calculate_table_layout(void) {
     // - Level: 60px (7.6%)
     // - Message: 550px (69.6%)
     // Total: 790px
-    
+
     // Set column widths
     lv_table_set_col_width(data_table, 0, 100);   // Time
     lv_table_set_col_width(data_table, 1, 80);    // Source
@@ -168,7 +221,7 @@ static void parent_size_changed_cb(lv_event_t * e) {
 
 void create_screen_logs(lv_obj_t *parent) {
     log_screen_parent = parent; // Store for later calculations
-    
+
     // SIMPLIFY: Use simple vertical layout without flex complications
     lv_obj_set_style_pad_all(parent, 0, 0);
     lv_obj_set_style_radius(parent, 0, 0);
@@ -212,24 +265,24 @@ void create_screen_logs(lv_obj_t *parent) {
     lv_obj_set_style_radius(refresh_btn, 4, 0);
     lv_obj_set_style_bg_color(refresh_btn, lv_color_hex(0x444444), 0);
     lv_obj_set_style_bg_color(refresh_btn, lv_color_hex(0x555555), LV_STATE_PRESSED);
-    
+
     lv_obj_t *refresh_label = lv_label_create(refresh_btn);
     lv_label_set_text(refresh_label, LV_SYMBOL_REFRESH);
     lv_obj_set_style_text_color(refresh_label, lv_color_white(), 0);
     lv_obj_center(refresh_label);
-    
+
     lv_obj_add_event_cb(refresh_btn, refresh_button_cb, LV_EVENT_CLICKED, NULL);
 
     // ========== DATA TABLE (Fixed size below header) ==========
     data_table = lv_table_create(parent);
-    
+
     // Calculate position and size: below header, full remaining height
     int32_t parent_height = lv_obj_get_height(parent);
     int32_t table_height = parent_height - 40; // Header is 40px
-    
+
     lv_obj_set_pos(data_table, 0, 40); // Below header
     lv_obj_set_size(data_table, lv_pct(100), table_height);
-    
+
     // Table styling
     lv_obj_set_style_bg_color(data_table, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(data_table, LV_OPA_COVER, 0);
@@ -237,22 +290,22 @@ void create_screen_logs(lv_obj_t *parent) {
     lv_obj_set_style_radius(data_table, 0, 0);
     lv_obj_set_style_pad_all(data_table, 5, 0);
     lv_obj_set_scrollbar_mode(data_table, LV_SCROLLBAR_MODE_AUTO);
-    
+
     // Set column count
     lv_table_set_col_cnt(data_table, 4);
-    
+
     // Calculate and set optimal column widths
     calculate_table_layout();
-    
+
     // Set text properties
     lv_obj_set_style_text_font(data_table, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(data_table, lv_color_white(), 0);
-    
+
     // Cell styling
     lv_obj_set_style_pad_all(data_table, 4, LV_PART_ITEMS);
     lv_obj_set_style_border_width(data_table, 1, LV_PART_ITEMS);
     lv_obj_set_style_border_color(data_table, lv_color_hex(0x444444), LV_PART_ITEMS);
-    
+
     // Initial loading message
     lv_table_set_row_cnt(data_table, 1);
     lv_table_set_cell_value(data_table, 0, 0, "Loading...");
