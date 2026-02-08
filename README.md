@@ -103,6 +103,16 @@ Registers a function pointer to handle brightness changes.
 ### `minigui_set_brightness(uint8_t brightness)`
 Updates the display brightness (proxies to the registered callback).
 
+### `minigui_register_wifi_save_cb(minigui_wifi_save_cb_t cb)`
+Registers a callback to handle saving WiFi credentials (SSID and Password). Called when the user presses "Save" in the Settings screen.
+
+```c
+typedef struct {
+    char ssid[64];
+    char password[128];
+} minigui_wifi_credentials_t;
+```
+
 ## ⚖️ License
 
 MIT License. See [LICENSE](LICENSE) for details.

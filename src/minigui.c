@@ -5,6 +5,7 @@
 #include "screens/screen_settings.h"
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 
 // UI Structure Globals
 static lv_obj_t *main_container = NULL;
@@ -16,6 +17,10 @@ static lv_obj_t *lbl_clock = NULL;
 // Callback hooks
 static minigui_brightness_cb_t brightness_cb = NULL;
 static minigui_time_provider_t global_time_provider = NULL;
+static minigui_wifi_save_cb_t wifi_save_cb = NULL;
+static minigui_wifi_scan_provider_t wifi_scan_provider = NULL;
+static minigui_system_stats_provider_t system_stats_provider = NULL;
+static minigui_network_status_provider_t network_status_provider = NULL;
 
 // Screen Creator Array
 static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
@@ -172,6 +177,22 @@ void minigui_switch_screen(minigui_screen_t screen_type) {
 // --- Bridge Functions ---
 void minigui_register_brightness_cb(minigui_brightness_cb_t cb) { brightness_cb = cb; }
 
+void minigui_register_wifi_save_cb(minigui_wifi_save_cb_t cb) {
+    wifi_save_cb = cb;
+}
+
+void minigui_register_wifi_scan_provider(minigui_wifi_scan_provider_t provider) {
+    wifi_scan_provider = provider;
+}
+
+void minigui_register_system_stats_provider(minigui_system_stats_provider_t provider) {
+    system_stats_provider = provider;
+}
+
+void minigui_register_network_status_provider(minigui_network_status_provider_t provider) {
+    network_status_provider = provider;
+}
+
 void minigui_set_time_provider(minigui_time_provider_t provider) {
     global_time_provider = provider;
     // Update immediately if possible
@@ -179,4 +200,62 @@ void minigui_set_time_provider(minigui_time_provider_t provider) {
 }
 
 void minigui_set_brightness(uint8_t brightness) { if (brightness_cb) brightness_cb(brightness); }
+
+/**
+ * @brief Internal helper to trigger the WiFi save callback.
+ * Used by the settings screen.
+ */
+void minigui_save_wifi_credentials(const minigui_wifi_credentials_t *creds) {
+    if (wifi_save_cb) wifi_save_cb(creds);
+}
+
+size_t minigui_scan_wifi(minigui_wifi_network_t *networks, size_t max_count) {
+    if (wifi_scan_provider) {
+        return wifi_scan_provider(networks, max_count);
+    }
+
+    // Default Mock Scan Provider (for simulator)
+    const char *mock_ssids[] = {"Home_WiFi_2.4G", "Office_Secure", "CoffeeShop_Free", "Starlink_99", "Guest_Lounge"};
+    size_t count = (5 < max_count) ? 5 : max_count;
+
+    for (size_t i = 0; i < count; i++) {
+        strncpy(networks[i].ssid, mock_ssids[i], sizeof(networks[i].ssid) - 1);
+        networks[i].ssid[sizeof(networks[i].ssid) - 1] = '\0';
+        networks[i].rssi = -50 - (i * 10); // Simulated RSSI
+    }
+
+    return count;
+}
+
+void minigui_get_system_stats(minigui_system_stats_t *stats) {
+    if (system_stats_provider) {
+        system_stats_provider(stats);
+        return;
+    }
+
+    // Default Mock Stats Provider (for simulator)
+    stats->voltage = 5.0f + ((float)(lv_tick_get() % 100) / 100.0f); // Simulate 5.0-5.1V
+    stats->cpu_usage = 15 + (lv_tick_get() % 40); // Simulate 15-55%
+    stats->flash_used_kb = 512;
+    stats->flash_total_kb = 4096;
+    stats->ram_used_kb = 128;
+    stats->ram_total_kb = 520;
+}
+
+void minigui_get_network_status(minigui_network_status_t *status) {
+    if (network_status_provider) {
+        network_status_provider(status);
+        return;
+    }
+
+    // Default Mock Network Status (for simulator)
+    status->connected = true;
+    strncpy(status->ssid, "Home_WiFi_2.4G", sizeof(status->ssid) - 1);
+    status->ssid[sizeof(status->ssid) - 1] = '\0';
+    strncpy(status->ip_address, "192.168.1.42", sizeof(status->ip_address) - 1);
+    status->ip_address[sizeof(status->ip_address) - 1] = '\0';
+    strncpy(status->mac_address, "AA:BB:CC:DD:EE:FF", sizeof(status->mac_address) - 1);
+    status->mac_address[sizeof(status->mac_address) - 1] = '\0';
+}
+
 lv_obj_t *minigui_get_content_area(void) { return content_area; }

@@ -133,7 +133,7 @@ static void update_table_with_logs(const char *filter) {
     // CRITICAL: Free heap memory
     free(logs);
 
-    LV_LOG_USER("Log table refreshed with %d entries", count);
+    LV_LOG_USER("Log table refreshed with %zu entries", count);
 }
 
 static void refresh_button_cb(lv_event_t * e) {
