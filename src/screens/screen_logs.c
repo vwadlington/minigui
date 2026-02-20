@@ -1,20 +1,82 @@
-#include "screens/screen_logs.h"
-#include "minigui.h"
-#include "lvgl.h"
+
+/******************************************************************************
+ ******************************************************************************
+ * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ******************************************************************************
+ ******************************************************************************/
 #include <stdlib.h>  // For malloc/free
 #include <string.h>  // For strcpy, strcmp, etc.
 #include <time.h>    // For mock timestamps
 
-// ============================================================================
-// STATIC VARIABLES
-// ============================================================================
+/******************************************************************************
+ ******************************************************************************
+ * 2. Managed Espressif Components (External Managed Components)
+ ******************************************************************************
+ ******************************************************************************/
+#include "lvgl.h"
 
+/******************************************************************************
+ ******************************************************************************
+ * 3. Project-Specific Components (Local)
+ ******************************************************************************
+ ******************************************************************************/
+#include "screens/screen_logs.h"
+#include "minigui.h"
+
+/******************************************************************************
+ ******************************************************************************
+ * FILE GLOBALS
+ ******************************************************************************
+ ******************************************************************************/
+
+/******************************************************************************
+ * @brief Reference to the main data table
+ * @section scope
+ * Internal to screen_logs.c
+ * @section rationale
+ * Displays the list of log entries. Need handle to update data.
+ ******************************************************************************/
 static lv_obj_t *data_table = NULL;
-static lv_obj_t *filter_dropdown = NULL;
-static lv_obj_t *log_screen_parent = NULL; // Store the parent container
 
+/******************************************************************************
+ * @brief Reference to the source filter dropdown
+ * @section scope
+ * Internal to screen_logs.c
+ * @section rationale
+ * Allows user to filter logs by source (e.g., wifi, system).
+ ******************************************************************************/
+static lv_obj_t *filter_dropdown = NULL;
+
+/******************************************************************************
+ * @brief Reference to the parent screen object
+ * @section scope
+ * Internal to screen_logs.c
+ * @section rationale
+ * Used to calculate available width for the table.
+ ******************************************************************************/
+static lv_obj_t *log_screen_parent = NULL;
+
+/******************************************************************************
+ * @brief Registered callback to fetch logs
+ * @section scope
+ * Internal to screen_logs.c
+ * @section rationale
+ * Decouples UI from the backend logging system.
+ ******************************************************************************/
 static minigui_log_provider_t global_log_provider = NULL;
 
+// ============================================================================
+// PUBLIC SETTERS
+// ============================================================================
+
+/******************************************************************************
+ * @brief Register a log provider.
+ *
+ * @param provider The function pointer to retrieve logs.
+ *
+ * Implementation Steps
+ * 1. Store the provider in `global_log_provider`.
+ ******************************************************************************/
 void minigui_set_log_provider(minigui_log_provider_t provider) {
     global_log_provider = provider;
 }
@@ -23,6 +85,18 @@ void minigui_set_log_provider(minigui_log_provider_t provider) {
 // PRIVATE HELPER FUNCTIONS
 // ============================================================================
 
+/******************************************************************************
+ * @brief Clears all text from the table cells.
+ *
+ * @section call_site
+ * Called by `update_table_with_logs` before repopulating.
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. iterate through all rows.
+ * 2. Set columns 0-3 to empty string.
+ ******************************************************************************/
 static void clear_table_cells(void) {
     if (!data_table) return;
 
@@ -36,10 +110,23 @@ static void clear_table_cells(void) {
     }
 }
 
-/**
+/******************************************************************************
  * @brief Internal mock data provider for standalone UI development/simulator.
  * This is only compiled if MINIGUI_USE_MOCK_LOGS is defined.
- */
+ *
+ * @param logs Output buffer
+ * @param max_count Max logs
+ * @param filter Data filter
+ * @return Number of logs returned
+ *
+ * Implementation Steps
+ * 1. Define a static array of mock log entries.
+ * 2. Get current time.
+ * 3. Loop through mock entries.
+ * 4. Filter based on source.
+ * 5. Formatting timestamp and copy data to output buffer.
+ * 6. Return count of added logs.
+ ******************************************************************************/
 static size_t internal_get_logs(minigui_log_entry_t *logs, size_t max_count, const char *filter) {
 #ifdef MINIGUI_USE_MOCK_LOGS
     static const struct {
@@ -76,6 +163,24 @@ static size_t internal_get_logs(minigui_log_entry_t *logs, size_t max_count, con
 #endif
 }
 
+/******************************************************************************
+ * @brief Fetches logs and updates the table UI.
+ *
+ * @section call_site
+ * Called by refresh button, filter change, or init timer.
+ *
+ * @param filter The source string to filter by (or "ALL").
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Show "Loading..." message in table.
+ * 2. Allocate memory for temp log buffer.
+ * 3. Fetch logs from provider (or mock).
+ * 4. Resize table rows to match log count.
+ * 5. Populate table cells with log data.
+ * 6. Free temp buffer.
+ ******************************************************************************/
 static void update_table_with_logs(const char *filter) {
     if (!data_table) return;
 
@@ -136,6 +241,15 @@ static void update_table_with_logs(const char *filter) {
     LV_LOG_USER("Log table refreshed with %zu entries", count);
 }
 
+/******************************************************************************
+ * @brief Handle refresh button click
+ *
+ * @param e LVGL event
+ *
+ * Implementation Steps
+ * 1. Get current filter value from dropdown.
+ * 2. Call `update_table_with_logs`.
+ ******************************************************************************/
 static void refresh_button_cb(lv_event_t * e) {
     (void)e; // Unused parameter
 
@@ -151,6 +265,15 @@ static void refresh_button_cb(lv_event_t * e) {
     update_table_with_logs(filter_buf);
 }
 
+/******************************************************************************
+ * @brief Handle filter dropdown change
+ *
+ * @param e LVGL event
+ *
+ * Implementation Steps
+ * 1. Get new filter str.
+ * 2. Call `update_table_with_logs`.
+ ******************************************************************************/
 static void filter_event_cb(lv_event_t * e) {
     lv_obj_t * dropdown = lv_event_get_target(e);
     char filter_buf[16];
@@ -159,6 +282,15 @@ static void filter_event_cb(lv_event_t * e) {
     update_table_with_logs(filter_buf);
 }
 
+/******************************************************************************
+ * @brief Timer callback for initial load
+ *
+ * @param t Timer
+ *
+ * Implementation Steps
+ * 1. Verify "ALL" logs.
+ * 2. Delete the timer.
+ ******************************************************************************/
 static void deferred_load_cb(lv_timer_t * t) {
     update_table_with_logs("ALL");
     lv_timer_del(t);
@@ -168,6 +300,14 @@ static void deferred_load_cb(lv_timer_t * t) {
 // PUBLIC API
 // ============================================================================
 
+/******************************************************************************
+ * @brief Manually triggers a refresh of the log table.
+ *
+ * @param filter The source filter string (e.g., "WIFI") or NULL/ALL.
+ *
+ * Implementation Steps
+ * 1. Call `update_table_with_logs`.
+ ******************************************************************************/
 void refresh_log_table(const char *filter) {
     update_table_with_logs(filter ? filter : "ALL");
 }
@@ -176,9 +316,18 @@ void refresh_log_table(const char *filter) {
 // CORRECTED FIXED LAYOUT (No percentages for LVGL table columns)
 // ============================================================================
 
-/**
+/******************************************************************************
  * @brief Calculate optimal column widths for 800px display
- */
+ *
+ * @section call_site
+ * Called on init and resize.
+ *
+ * Implementation Steps
+ * 1. Determine available width (default 800px).
+ * 2. Subtract padding.
+ * 3. Set fixed widths for Time, Source, Level.
+ * 4. Give remaining width to Message.
+ ******************************************************************************/
 static void calculate_table_layout(void) {
     if (!data_table || !log_screen_parent) return;
 
@@ -207,9 +356,14 @@ static void calculate_table_layout(void) {
     lv_table_set_col_width(data_table, 3, available_width - 240); // Message (remaining)
 }
 
-/**
+/******************************************************************************
  * @brief Recalculate layout when parent size changes
- */
+ *
+ * @param e LVGL event
+ *
+ * Implementation Steps
+ * 1. Call `calculate_table_layout`.
+ ******************************************************************************/
 static void parent_size_changed_cb(lv_event_t * e) {
     (void)e; // Unused parameter
     calculate_table_layout();
@@ -219,6 +373,22 @@ static void parent_size_changed_cb(lv_event_t * e) {
 // SIMPLIFIED SCREEN CREATION WITH PROPER SIZING
 // ============================================================================
 
+/******************************************************************************
+ * @brief Creates the Logs screen object.
+ *
+ * @param parent The main content area.
+ *
+ * Implementation Steps
+ * 1. Set styles (black bg) on parent.
+ * 2. Create Header Container (40px height).
+ * 3. Create Header Label ("TIME | FROM | ...").
+ * 4. Create Filter Dropdown (aligned right).
+ * 5. Create Refresh Button (aligned right).
+ * 6. Create Data Table (filling remaining height).
+ * 7. Configure Table columns and styling.
+ * 8. Set initial "Loading..." state.
+ * 9. Start timer for deferred data load.
+ ******************************************************************************/
 void create_screen_logs(lv_obj_t *parent) {
     log_screen_parent = parent; // Store for later calculations
 

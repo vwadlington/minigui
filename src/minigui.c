@@ -1,17 +1,80 @@
+
+/******************************************************************************
+ ******************************************************************************
+ * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ******************************************************************************
+ ******************************************************************************/
+#include <time.h>
+#include <stdio.h>
+#include <string.h>
+
+/******************************************************************************
+ ******************************************************************************
+ * 2. Managed Espressif Components (External Managed Components)
+ ******************************************************************************
+ ******************************************************************************/
+// None directly here, lvgl is included via minigui.h
+
+/******************************************************************************
+ ******************************************************************************
+ * 3. Project-Specific Components (Local)
+ ******************************************************************************
+ ******************************************************************************/
 #include "minigui.h"
 #include "minigui_menu.h"
 #include "screens/screen_home.h"
 #include "screens/screen_logs.h"
 #include "screens/screen_settings.h"
-#include <time.h>
-#include <stdio.h>
-#include <string.h>
 
-// UI Structure Globals
+/******************************************************************************
+ ******************************************************************************
+ * FILE GLOBALS
+ ******************************************************************************
+ ******************************************************************************/
+
+/******************************************************************************
+ * @brief Reference to the main flex container
+ * @section scope
+ * Internal to minigui.c
+ * @section rationale
+ * Acts as the root parent for all UI elements created by this module.
+ ******************************************************************************/
 static lv_obj_t *main_container = NULL;
+
+/******************************************************************************
+ * @brief Reference to the top status bar
+ * @section scope
+ * Internal to minigui.c
+ * @section rationale
+ * Holds the menu button, title, and clock.
+ ******************************************************************************/
 static lv_obj_t *status_bar = NULL;
+
+/******************************************************************************
+ * @brief Reference to the dynamic content area
+ * @section scope
+ * Internal to minigui.c
+ * @section rationale
+ * This is where different screens (Home, Logs, etc.) inject their content.
+ ******************************************************************************/
 static lv_obj_t *content_area = NULL;
+
+/******************************************************************************
+ * @brief Reference to the screen title label
+ * @section scope
+ * Internal to minigui.c
+ * @section rationale
+ * Updated whenever the screen changes to reflect the current view name.
+ ******************************************************************************/
 static lv_obj_t *lbl_title = NULL;
+
+/******************************************************************************
+ * @brief Reference to the clock label
+ * @section scope
+ * Internal to minigui.c
+ * @section rationale
+ * Updated every second by a timer to show current time.
+ ******************************************************************************/
 static lv_obj_t *lbl_clock = NULL;
 
 // Callback hooks
@@ -33,9 +96,35 @@ static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
 // PRIVATE HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Updates the clock label with current system time.
- */
+/******************************************************************************
+ * @brief Updates the clock label with current system time.
+ *
+ * @section call_site
+ * Called by `lv_timer` every 1000ms.
+ *
+ * @section dependencies
+ * - `time.h`: For standard time functions.
+ * - `lvgl`: For label updating.
+ *
+ * @param timer The LVGL timer instance triggering this callback.
+ *
+ * @section pointers
+ * - `timer`: Owned by LVGL, unused in logic.
+ *
+ * @section variables
+ * - `buf`: Character buffer [32] to hold the formatted time string. Rationale: Temporary storage for strftime output.
+ * - `now`: `time_t` holding current epoch time. Rationale: Source for local time conversion.
+ * - `tm_info`: `struct tm*` holding broken-down time. Rationale: Needed for formatting.
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Check if the clock label exists; return if not.
+ * 2. If a global time provider is registered, use it to get the time string.
+ * 3. Otherwise, get the system time using `time(NULL)`.
+ * 4. Format the time as "Day Mon/Day Hr:Min:Sec".
+ * 5. Update the LVGL label text with the formatted string.
+ ******************************************************************************/
 static void update_clock_cb(lv_timer_t *timer) {
     (void)timer;
     if (!lbl_clock) return;
@@ -57,15 +146,55 @@ static void update_clock_cb(lv_timer_t *timer) {
     lv_label_set_text(lbl_clock, buf);
 }
 
-// Event wrapper to open the menu
+/******************************************************************************
+ * @brief Event wrapper to open the menu
+ *
+ * @section call_site
+ * Assigned to the hamburger button's `LV_EVENT_CLICKED`.
+ *
+ * @section dependencies
+ * - `minigui_menu.h`: To toggle the menu visibility.
+ *
+ * @param e LVGL event object.
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Log the user interaction.
+ * 2. Call `minigui_menu_toggle()` to show/hide the sidebar.
+ ******************************************************************************/
 static void menu_btn_event_cb(lv_event_t * e) {
     LV_LOG_USER("Hamburger menu toggled");
     minigui_menu_toggle();
 }
 
-/**
- * Ensures the hamburger button is a perfect square.
- */
+/******************************************************************************
+ * @brief Ensures the hamburger button is a perfect square.
+ *
+ * @section call_site
+ * Assigned to the hamburger button's `LV_EVENT_SIZE_CHANGED`.
+ *
+ * @section dependencies
+ * - `lvgl`: For object geometry manipulation.
+ *
+ * @param e LVGL event object.
+ *
+ * @section pointers
+ * - `e`: Owned by LVGL, contains target object.
+ *
+ * @section variables
+ * - `btn`: target object. Rationale: The button being resized.
+ * - `parent`: parent object. Rationale: The status bar, whose height determines the button size.
+ * - `h`: height of the parent. Rationale: Used to set the width.
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Retrieve the button object from the event.
+ * 2. Retrieve the parent object (status bar).
+ * 3. Get the parent's height.
+ * 4. Set the button's width equal to the parent's height to force a square aspect ratio.
+ ******************************************************************************/
 static void sync_square_size_cb(lv_event_t * e) {
     lv_obj_t * btn = lv_event_get_target(e);
     lv_obj_t * parent = lv_obj_get_parent(btn);
@@ -75,6 +204,34 @@ static void sync_square_size_cb(lv_event_t * e) {
     }
 }
 
+// ============================================================================
+// PUBLIC API FUNCTIONS
+// ============================================================================
+
+/******************************************************************************
+ * @brief Initialize the UI manager
+ *
+ * @section call_site
+ * Called from `app_main` or similar entry point.
+ *
+ * @section dependencies
+ * - `minigui_menu.h`: For menu initialization.
+ * - `lvgl`: For all UI creation.
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Initialize the side menu system.
+ * 2. Configure the active screen background to black.
+ * 3. Create the `main_container` with a vertical flex layout to hold status bar and content.
+ * 4. Create the `status_bar` with a horizontal flex layout.
+ * 5. Create the hamburger button and attach the square-size sync callback.
+ * 6. Create the title label with flex-grow to push the clock to the right.
+ * 7. Create the clock label and perform an initial update.
+ * 8. Create a 1-second timer to keep the clock updated.
+ * 9. Create the `content_area` container which will hold screen-specific widgets.
+ * 10. Default to the Home screen by calling `minigui_switch_screen`.
+ ******************************************************************************/
 void minigui_init(void) {
     // Using LVGL native logging instead of ESP_LOG
     LV_LOG_INFO("MiniGUI: Initializing nested flex layout...");
@@ -157,6 +314,24 @@ void minigui_init(void) {
     minigui_switch_screen(MINIGUI_SCREEN_HOME);
 }
 
+/******************************************************************************
+ * @brief Switch to a specific screen
+ *
+ * @section call_site
+ * Called internally on init, or by the menu when a user selects a page.
+ *
+ * @param screen_type The ID of the screen to switch to.
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Validate the screen ID and existence of `content_area`.
+ * 2. Log the screen switch event.
+ * 3. Clear all children from `content_area` to remove the old screen.
+ * 4. Reset flex/scroll styles on `content_area`.
+ * 5. Update the title label based on the new screen ID.
+ * 6. Invoke the specific screen creator function to build the new UI.
+ ******************************************************************************/
 void minigui_switch_screen(minigui_screen_t screen_type) {
     if (screen_type >= MINIGUI_SCREEN_COUNT || !content_area) return;
 
@@ -175,40 +350,117 @@ void minigui_switch_screen(minigui_screen_t screen_type) {
 }
 
 // --- Bridge Functions ---
+
+/******************************************************************************
+ * @brief Register a callback for hardware brightness control
+ *
+ * @param cb Function to handle brightness changes
+ *
+ * Implementation Steps
+ * 1. Store the provided callback pointer in `brightness_cb`.
+ ******************************************************************************/
 void minigui_register_brightness_cb(minigui_brightness_cb_t cb) { brightness_cb = cb; }
 
+/******************************************************************************
+ * @brief Register a callback for WiFi configuration saving
+ *
+ * @param cb The function pointer to handle saving credentials
+ *
+ * Implementation Steps
+ * 1. Store the provided callback pointer in `wifi_save_cb`.
+ ******************************************************************************/
 void minigui_register_wifi_save_cb(minigui_wifi_save_cb_t cb) {
     wifi_save_cb = cb;
 }
 
+/******************************************************************************
+ * @brief Register a callback for WiFi scanning
+ *
+ * @param provider The function pointer to perform network scanning
+ *
+ * Implementation Steps
+ * 1. Store the provided callback pointer in `wifi_scan_provider`.
+ ******************************************************************************/
 void minigui_register_wifi_scan_provider(minigui_wifi_scan_provider_t provider) {
     wifi_scan_provider = provider;
 }
 
+/******************************************************************************
+ * @brief Register a callback for system statistics monitoring
+ *
+ * @param provider The function pointer to retrieve system stats
+ *
+ * Implementation Steps
+ * 1. Store the provided callback pointer in `system_stats_provider`.
+ ******************************************************************************/
 void minigui_register_system_stats_provider(minigui_system_stats_provider_t provider) {
     system_stats_provider = provider;
 }
 
+/******************************************************************************
+ * @brief Register a callback for network status monitoring
+ *
+ * @param provider The function pointer to retrieve network status
+ *
+ * Implementation Steps
+ * 1. Store the provided callback pointer in `network_status_provider`.
+ ******************************************************************************/
 void minigui_register_network_status_provider(minigui_network_status_provider_t provider) {
     network_status_provider = provider;
 }
 
+/******************************************************************************
+ * @brief Register a time provider for the status bar clock
+ *
+ * @param provider The function pointer to retrieve formatted time
+ *
+ * Implementation Steps
+ * 1. Store the provider.
+ * 2. Immediately update the clock via `update_clock_cb` to reflect new source.
+ ******************************************************************************/
 void minigui_set_time_provider(minigui_time_provider_t provider) {
     global_time_provider = provider;
     // Update immediately if possible
     if (lbl_clock) update_clock_cb(NULL);
 }
 
+/******************************************************************************
+ * @brief Set screen brightness (proxies to registered callback)
+ *
+ * @param brightness Target brightness value (0-255)
+ *
+ * Implementation Steps
+ * 1. Check if a callback is registered.
+ * 2. Invoke the callback with the new brightness value.
+ ******************************************************************************/
 void minigui_set_brightness(uint8_t brightness) { if (brightness_cb) brightness_cb(brightness); }
 
-/**
+/******************************************************************************
  * @brief Internal helper to trigger the WiFi save callback.
- * Used by the settings screen.
- */
+ *
+ * @param creds Pointer to the collected credentials
+ *
+ * Implementation Steps
+ * 1. Check if `wifi_save_cb` is registered.
+ * 2. Execute the callback with the credentials.
+ ******************************************************************************/
 void minigui_save_wifi_credentials(const minigui_wifi_credentials_t *creds) {
     if (wifi_save_cb) wifi_save_cb(creds);
 }
 
+/******************************************************************************
+ * @brief Internal helper to trigger the WiFi scan.
+ *
+ * @param networks Output buffer
+ * @param max_count Capacity of the buffer
+ * @return Number of networks found
+ *
+ * Implementation Steps
+ * 1. If a real provider is registered, delegate to it.
+ * 2. Otherwise, use a simulated list of mock networks.
+ * 3. Populate simululated networks with mock SSID and RSSI data.
+ * 4. Return the number of networks found (max 5).
+ ******************************************************************************/
 size_t minigui_scan_wifi(minigui_wifi_network_t *networks, size_t max_count) {
     if (wifi_scan_provider) {
         return wifi_scan_provider(networks, max_count);
@@ -227,6 +479,16 @@ size_t minigui_scan_wifi(minigui_wifi_network_t *networks, size_t max_count) {
     return count;
 }
 
+/******************************************************************************
+ * @brief Internal helper to retrieve system statistics.
+ *
+ * @param stats Output pointer to fill
+ *
+ * Implementation Steps
+ * 1. If a real provider is registered, delegate to it.
+ * 2. Otherwise, fill the stats structure with simulated data.
+ * 3. Simulate fluctuating voltage and CPU usage using `lv_tick_get()`.
+ ******************************************************************************/
 void minigui_get_system_stats(minigui_system_stats_t *stats) {
     if (system_stats_provider) {
         system_stats_provider(stats);
@@ -242,6 +504,15 @@ void minigui_get_system_stats(minigui_system_stats_t *stats) {
     stats->ram_total_kb = 520;
 }
 
+/******************************************************************************
+ * @brief Internal helper to retrieve network status.
+ *
+ * @param status Output pointer to fill
+ *
+ * Implementation Steps
+ * 1. If a real provider is registered, delegate to it.
+ * 2. Otherwise, return a hardcoded "Connected" status with mock IP/MAC.
+ ******************************************************************************/
 void minigui_get_network_status(minigui_network_status_t *status) {
     if (network_status_provider) {
         network_status_provider(status);
@@ -258,4 +529,12 @@ void minigui_get_network_status(minigui_network_status_t *status) {
     status->mac_address[sizeof(status->mac_address) - 1] = '\0';
 }
 
+/******************************************************************************
+ * @brief Internal helper to get the main content area (stage).
+ *
+ * @return Pointer to the main content container
+ *
+ * Implementation Steps
+ * 1. Return the static `content_area` pointer.
+ ******************************************************************************/
 lv_obj_t *minigui_get_content_area(void) { return content_area; }
