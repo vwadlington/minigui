@@ -317,6 +317,8 @@ static lv_obj_t *lbl_flash = NULL;
 static lv_obj_t *lbl_ram = NULL;
 
 static void monitor_timer_cb(lv_timer_t *timer) {
+    if (!lbl_voltage || !lbl_cpu || !lbl_flash || !lbl_ram) return;
+
     minigui_system_stats_t stats;
     minigui_get_system_stats(&stats);
 
@@ -340,31 +342,55 @@ static void monitor_timer_cb(lv_timer_t *timer) {
     lv_label_set_text(lbl_ram, buf);
 }
 
+static void monitor_panel_delete_cb(lv_event_t * e) {
+    if (monitor_timer) {
+        lv_timer_del(monitor_timer);
+        monitor_timer = NULL;
+    }
+    lbl_voltage = NULL;
+    lbl_cpu = NULL;
+    lbl_flash = NULL;
+    lbl_ram = NULL;
+}
+
 static void create_monitor_panel(lv_obj_t *parent) {
-    lv_obj_t *lbl = lv_label_create(parent);
+    // Create a container specifically for the monitor contents
+    // This allows us to handle deletion of exactly these components
+    lv_obj_t * monitor_cont = lv_obj_create(parent);
+    lv_obj_set_size(monitor_cont, lv_pct(100), lv_pct(100));
+    lv_obj_set_flex_flow(monitor_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(monitor_cont, 0, 0);
+    lv_obj_set_style_pad_gap(monitor_cont, 10, 0);
+    lv_obj_set_style_bg_opa(monitor_cont, 0, 0);
+    lv_obj_set_style_border_width(monitor_cont, 0, 0);
+
+    // Add delete event to the container
+    lv_obj_add_event_cb(monitor_cont, monitor_panel_delete_cb, LV_EVENT_DELETE, NULL);
+
+    lv_obj_t *lbl = lv_label_create(monitor_cont);
     lv_label_set_text(lbl, "System Monitor");
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_margin_bottom(lbl, 15, 0);
 
-    lbl_voltage = lv_label_create(parent);
+    lbl_voltage = lv_label_create(monitor_cont);
     lv_label_set_text(lbl_voltage, "Voltage: --");
     lv_obj_set_style_margin_bottom(lbl_voltage, 8, 0);
 
-    create_separator(parent, 0, 8);
+    create_separator(monitor_cont, 0, 8);
 
-    lbl_cpu = lv_label_create(parent);
+    lbl_cpu = lv_label_create(monitor_cont);
     lv_label_set_text(lbl_cpu, "CPU Usage: --");
     lv_obj_set_style_margin_bottom(lbl_cpu, 8, 0);
 
-    create_separator(parent, 0, 8);
+    create_separator(monitor_cont, 0, 8);
 
-    lbl_flash = lv_label_create(parent);
+    lbl_flash = lv_label_create(monitor_cont);
     lv_label_set_text(lbl_flash, "Flash: --");
     lv_obj_set_style_margin_bottom(lbl_flash, 8, 0);
 
-    create_separator(parent, 0, 8);
+    create_separator(monitor_cont, 0, 8);
 
-    lbl_ram = lv_label_create(parent);
+    lbl_ram = lv_label_create(monitor_cont);
     lv_label_set_text(lbl_ram, "RAM: --");
 
     // Create 1-second update timer
@@ -383,14 +409,14 @@ static void create_monitor_panel(lv_obj_t *parent) {
 static void switch_category(settings_category_t cat) {
     current_category = cat;
 
+    // Log user navigation
+    const char* cat_names[] = {"Screen", "Network", "System", "Monitor"};
+    if (cat < SETTINGS_CAT_COUNT) {
+        LV_LOG_USER("Settings: Switching to %s panel", cat_names[cat]);
+    }
+
     // Clean content pane
     lv_obj_clean(content_pane);
-
-    // Delete monitor timer if leaving monitor panel
-    if (cat != SETTINGS_CAT_MONITOR && monitor_timer) {
-        lv_timer_del(monitor_timer);
-        monitor_timer = NULL;
-    }
 
     // Create new panel
     switch(cat) {
@@ -421,7 +447,16 @@ static void category_event_cb(lv_event_t * e) {
 //  MAIN SCREEN CREATION
 // ============================================================================
 
+static void settings_screen_event_cb(lv_event_t * e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_DELETE) {
+        content_pane = NULL;
+        kb = NULL;
+    }
+}
+
 void create_screen_settings(lv_obj_t *parent) {
+    lv_obj_add_event_cb(parent, settings_screen_event_cb, LV_EVENT_DELETE, NULL);
     lv_obj_set_style_bg_color(parent, lv_color_hex(0x1a1a1a), 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
 
