@@ -64,11 +64,12 @@ static void create_info_card(lv_obj_t *parent, const char* title, const char* va
 
     lv_obj_t *lbl_title = lv_label_create(card);
     lv_label_set_text(lbl_title, title);
+    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_24, 0);
     lv_obj_align(lbl_title, LV_ALIGN_TOP_LEFT, 0, 0);
 
     lv_obj_t *lbl_val = lv_label_create(card);
     lv_label_set_text(lbl_val, value);
-    lv_obj_set_style_text_font(lbl_val, &lv_font_montserrat_48, 0);
+    lv_obj_set_style_text_font(lbl_val, &lv_font_montserrat_36, 0);
     lv_obj_center(lbl_val);
 }
 

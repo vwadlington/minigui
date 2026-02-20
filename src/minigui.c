@@ -282,14 +282,14 @@ void minigui_init(void) {
     // 4. TITLE (Flex grow will push neighbors aside)
     lbl_title = lv_label_create(status_bar);
     lv_label_set_text(lbl_title, "Dashboard");
-    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_36, 0);
     lv_obj_set_style_text_color(lbl_title, lv_color_white(), 0);
     lv_obj_set_flex_grow(lbl_title, 1);
     lv_obj_set_style_text_align(lbl_title, LV_TEXT_ALIGN_CENTER, 0);
 
     // 5. CLOCK (Placed after title, will be on the right)
     lbl_clock = lv_label_create(status_bar);
-    lv_obj_set_style_text_font(lbl_clock, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl_clock, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(lbl_clock, lv_color_hex(0xAAAAAA), 0);
     lv_obj_set_width(lbl_clock, 180); // INCREASED WIDTH for longer date format
     lv_obj_set_style_text_align(lbl_clock, LV_TEXT_ALIGN_LEFT, 0);

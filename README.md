@@ -13,6 +13,15 @@ A lightweight, standalone, and portable UI manager for LVGL-based embedded syste
   - **Settings**: Control panel for device parameters (e.g., Brightness).
 - **Hardware Integration Hooks**: Easy-to-use callback registration for brightness control and other hardware-specific tasks.
 
+## 🎨 Typography
+
+MiniGUI uses a consistent hierarchy based on the **Montserrat** font:
+
+- **36px**: Status Bar titles.
+- **24px**: Page headers and sidebar menu buttons.
+- **20px**: Clock details and primary sub-section headers.
+- **16px**: Secondary details and small labels.
+
 ## 📂 Project Structure
 
 ```text
@@ -32,7 +41,7 @@ minigui/
 
 ### Prerequisites
 
-- [LVGL v9.2](https://github.com/lvgl/lvgl)
+- [LVGL v9.4](https://github.com/lvgl/lvgl)
 - C99 compatible compiler
 
 ### Integration
@@ -104,7 +113,25 @@ Registers a function pointer to handle brightness changes.
 Updates the display brightness (proxies to the registered callback).
 
 ### `minigui_register_wifi_save_cb(minigui_wifi_save_cb_t cb)`
-Registers a callback to handle saving WiFi credentials (SSID and Password). Called when the user presses "Save" in the Settings screen.
+Registers a callback to handle saving WiFi credentials.
+
+### `minigui_register_wifi_scan_provider(minigui_wifi_scan_provider_t provider)`
+Registers a function to perform WiFi network scanning.
+
+### `minigui_scan_wifi(minigui_wifi_network_t *networks, size_t max_count)`
+Triggers a WiFi scan (uses registered provider or internal mock).
+
+### `minigui_register_system_stats_provider(minigui_system_stats_provider_t provider)`
+Registers a function to retrieve system health/stats (Voltage, CPU, RAM).
+
+### `minigui_get_system_stats(minigui_system_stats_t *stats)`
+Retrieves current system statistics.
+
+### `minigui_register_network_status_provider(minigui_network_status_provider_t provider)`
+Registers a function to retrieve network connection status (IP, MAC, SSID).
+
+### `minigui_get_network_status(minigui_network_status_t *status)`
+Retrieves current network status.
 
 ```c
 typedef struct {

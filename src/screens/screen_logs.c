@@ -412,7 +412,7 @@ void create_screen_logs(lv_obj_t *parent) {
     // HEADER LABEL (left side)
     lv_obj_t *header_lbl = lv_label_create(header_cont);
     lv_label_set_text(header_lbl, "TIME | FROM | LVL | MESSAGE");
-    lv_obj_set_style_text_font(header_lbl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(header_lbl, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(header_lbl, lv_color_white(), 0);
     lv_obj_set_pos(header_lbl, 5, 5); // Fixed position
     lv_obj_set_size(header_lbl, 400, 30);
@@ -422,7 +422,7 @@ void create_screen_logs(lv_obj_t *parent) {
     lv_dropdown_set_options(filter_dropdown, "ALL\nESP\nLVGL\nUSER");
     lv_obj_set_size(filter_dropdown, 100, 30);
     lv_obj_set_pos(filter_dropdown, 600, 5); // Right-aligned
-    lv_obj_set_style_text_font(filter_dropdown, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(filter_dropdown, &lv_font_montserrat_16, 0);
     lv_obj_set_style_radius(filter_dropdown, 4, 0);
     lv_obj_set_style_bg_color(filter_dropdown, lv_color_hex(0x444444), 0);
     lv_obj_set_style_text_color(filter_dropdown, lv_color_white(), 0);
@@ -438,6 +438,7 @@ void create_screen_logs(lv_obj_t *parent) {
 
     lv_obj_t *refresh_label = lv_label_create(refresh_btn);
     lv_label_set_text(refresh_label, LV_SYMBOL_REFRESH);
+    lv_obj_set_style_text_font(refresh_label, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(refresh_label, lv_color_white(), 0);
     lv_obj_center(refresh_label);
 
@@ -468,7 +469,7 @@ void create_screen_logs(lv_obj_t *parent) {
     calculate_table_layout();
 
     // Set text properties
-    lv_obj_set_style_text_font(data_table, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(data_table, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(data_table, lv_color_white(), 0);
 
     // Cell styling

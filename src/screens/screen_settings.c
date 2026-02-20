@@ -260,7 +260,7 @@ static void slider_event_cb(lv_event_t * e) {
 static void create_screen_panel(lv_obj_t *parent) {
     lv_obj_t *lbl = lv_label_create(parent);
     lv_label_set_text(lbl, "Display Settings");
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_24, 0);
     lv_obj_set_style_margin_bottom(lbl, 15, 0);
 
     lv_obj_t *lbl_bright = lv_label_create(parent);
@@ -286,13 +286,13 @@ static void create_screen_panel(lv_obj_t *parent) {
 static void create_network_panel(lv_obj_t *parent) {
     lv_obj_t *lbl = lv_label_create(parent);
     lv_label_set_text(lbl, "Network Configuration");
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
     lv_obj_set_style_margin_bottom(lbl, 15, 0);
 
     // Current Network Status Section
     lv_obj_t *lbl_status_hdr = lv_label_create(parent);
     lv_label_set_text(lbl_status_hdr, "Current Connection");
-    lv_obj_set_style_text_font(lbl_status_hdr, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_status_hdr, &lv_font_montserrat_20, 0);
     lv_obj_set_style_margin_bottom(lbl_status_hdr, 8, 0);
 
     minigui_network_status_t net_status;
@@ -326,7 +326,7 @@ static void create_network_panel(lv_obj_t *parent) {
     // WiFi Scan & Connect Section
     lv_obj_t *lbl_connect_hdr = lv_label_create(parent);
     lv_label_set_text(lbl_connect_hdr, "Connect to Network");
-    lv_obj_set_style_text_font(lbl_connect_hdr, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_connect_hdr, &lv_font_montserrat_20, 0);
     lv_obj_set_style_margin_bottom(lbl_connect_hdr, 8, 0);
 
     // SSID Selection with Scan
@@ -349,6 +349,7 @@ static void create_network_panel(lv_obj_t *parent) {
     btn_scan = lv_button_create(ssid_row);
     lbl_scan = lv_label_create(btn_scan);
     lv_label_set_text(lbl_scan, "Scan");
+    lv_obj_set_style_text_font(lbl_scan, &lv_font_montserrat_20, 0);
     lv_obj_add_event_cb(btn_scan, scan_wifi_event_cb, LV_EVENT_CLICKED, NULL);
 
     // Password
@@ -368,6 +369,7 @@ static void create_network_panel(lv_obj_t *parent) {
     lv_obj_set_style_margin_top(btn_save, 20, 0);
     lv_obj_t *lbl_save = lv_label_create(btn_save);
     lv_label_set_text(lbl_save, "Save WiFi");
+    lv_obj_set_style_text_font(lbl_save, &lv_font_montserrat_20, 0);
     lv_obj_add_event_cb(btn_save, save_wifi_event_cb, LV_EVENT_CLICKED, NULL);
 }
 
@@ -421,7 +423,7 @@ static void check_firmware_event_cb(lv_event_t * e) {
 static void create_system_panel(lv_obj_t *parent) {
     lv_obj_t *lbl = lv_label_create(parent);
     lv_label_set_text(lbl, "System Management");
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_24, 0);
     lv_obj_set_style_margin_bottom(lbl, 15, 0);
 
     // Reboot section
@@ -429,6 +431,7 @@ static void create_system_panel(lv_obj_t *parent) {
     lv_obj_set_width(btn_reboot, lv_pct(100));
     lv_obj_t *lbl_reboot = lv_label_create(btn_reboot);
     lv_label_set_text(lbl_reboot, LV_SYMBOL_POWER " Reboot Device");
+    lv_obj_set_style_text_font(lbl_reboot, &lv_font_montserrat_20, 0);
     lv_obj_add_event_cb(btn_reboot, reboot_event_cb, LV_EVENT_CLICKED, NULL);
 
     // Separator
@@ -437,7 +440,7 @@ static void create_system_panel(lv_obj_t *parent) {
     // Firmware Update section
     lv_obj_t *lbl_fw_hdr = lv_label_create(parent);
     lv_label_set_text(lbl_fw_hdr, "Firmware");
-    lv_obj_set_style_text_font(lbl_fw_hdr, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_fw_hdr, &lv_font_montserrat_20, 0);
     lv_obj_set_style_margin_bottom(lbl_fw_hdr, 8, 0);
 
     lbl_fw_version = lv_label_create(parent);
@@ -448,6 +451,7 @@ static void create_system_panel(lv_obj_t *parent) {
     lv_obj_set_width(btn_check, lv_pct(100));
     lv_obj_t *lbl_check = lv_label_create(btn_check);
     lv_label_set_text(lbl_check, LV_SYMBOL_REFRESH " Check for Updates");
+    lv_obj_set_style_text_font(lbl_check, &lv_font_montserrat_20, 0);
     lv_obj_add_event_cb(btn_check, check_firmware_event_cb, LV_EVENT_CLICKED, NULL);
 
     lbl_fw_status = lv_label_create(parent);
@@ -459,6 +463,7 @@ static void create_system_panel(lv_obj_t *parent) {
     lv_obj_set_width(btn_fw_update, lv_pct(100));
     lv_obj_t *lbl_fw = lv_label_create(btn_fw_update);
     lv_label_set_text(lbl_fw, LV_SYMBOL_DOWNLOAD " Install Update");
+    lv_obj_set_style_text_font(lbl_fw, &lv_font_montserrat_20, 0);
     lv_obj_add_event_cb(btn_fw_update, firmware_update_event_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_flag(btn_fw_update, LV_OBJ_FLAG_HIDDEN);  // Hidden until update is found
 }
@@ -544,7 +549,7 @@ static void create_monitor_panel(lv_obj_t *parent) {
 
     lv_obj_t *lbl = lv_label_create(monitor_cont);
     lv_label_set_text(lbl, "System Monitor");
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_24, 0);
     lv_obj_set_style_margin_bottom(lbl, 15, 0);
 
     lbl_voltage = lv_label_create(monitor_cont);
@@ -708,6 +713,7 @@ void create_screen_settings(lv_obj_t *parent) {
         lv_obj_set_width(btn, lv_pct(100));
         lv_obj_t *lbl = lv_label_create(btn);
         lv_label_set_text(lbl, category_names[i]);
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_24, 0);
         lv_obj_add_event_cb(btn, category_event_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)i);
     }
 
