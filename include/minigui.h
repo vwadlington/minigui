@@ -15,6 +15,10 @@
  ******************************************************************************/
 #include "lvgl.h"
 
+#if (LVGL_VERSION_MAJOR != 9) || (LVGL_VERSION_MINOR != 4) || (LVGL_VERSION_PATCH != 0)
+    #error "minigui requires LVGL version 9.4.0. Please check your LVGL submodule version."
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
