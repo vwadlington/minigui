@@ -1,7 +1,17 @@
+/******************************************************************************
+ ******************************************************************************
+ ** @brief     Logs Screen Implementation.
+ **
+ **            Displays a scrollable table of system logs with source filtering
+ **            and manual refresh capabilities.
+ **
+ **            @section screen_logs.c - Log dashboard implementation.
+ ******************************************************************************
+ ******************************************************************************/
 
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
  ******************************************************************************
  ******************************************************************************/
 #include <stdlib.h>  // For malloc/free
@@ -10,14 +20,14 @@
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 #include "lvgl.h"
 
 /******************************************************************************
  ******************************************************************************
- * 3. Project-Specific Components (Local)
+ ** 3. Project-Specific Components (Local)
  ******************************************************************************
  ******************************************************************************/
 #include "screens/screen_logs.h"
@@ -30,38 +40,54 @@
  ******************************************************************************/
 
 /******************************************************************************
- * @brief Reference to the main data table
- * @section scope
- * Internal to screen_logs.c
- * @section rationale
- * Displays the list of log entries. Need handle to update data.
+ ******************************************************************************
+ ** @brief Reference to the main data table.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to screen_logs.c.
+ **
+ ** @section rationale Rationale:
+ ** - Displays the list of log entries. Need handle to update data.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *data_table = NULL;
 
 /******************************************************************************
- * @brief Reference to the source filter dropdown
- * @section scope
- * Internal to screen_logs.c
- * @section rationale
- * Allows user to filter logs by source (e.g., wifi, system).
+ ******************************************************************************
+ ** @brief Reference to the source filter dropdown.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to screen_logs.c.
+ **
+ ** @section rationale Rationale:
+ ** - Allows user to filter logs by source (e.g., wifi, system).
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *filter_dropdown = NULL;
 
 /******************************************************************************
- * @brief Reference to the parent screen object
- * @section scope
- * Internal to screen_logs.c
- * @section rationale
- * Used to calculate available width for the table.
+ ******************************************************************************
+ ** @brief Reference to the parent screen object.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to screen_logs.c.
+ **
+ ** @section rationale Rationale:
+ ** - Used to calculate available width for the table.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *log_screen_parent = NULL;
 
 /******************************************************************************
- * @brief Registered callback to fetch logs
- * @section scope
- * Internal to screen_logs.c
- * @section rationale
- * Decouples UI from the backend logging system.
+ ******************************************************************************
+ ** @brief Registered callback to fetch logs.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to screen_logs.c.
+ **
+ ** @section rationale Rationale:
+ ** - Decouples UI from the backend logging system.
+ ******************************************************************************
  ******************************************************************************/
 static minigui_log_provider_t global_log_provider = NULL;
 
@@ -70,12 +96,28 @@ static minigui_log_provider_t global_log_provider = NULL;
 // ============================================================================
 
 /******************************************************************************
- * @brief Register a log provider.
- *
- * @param provider The function pointer to retrieve logs.
- *
- * Implementation Steps
- * 1. Store the provider in `global_log_provider`.
+ ******************************************************************************
+ ** @brief Register a log provider.
+ **
+ ** @section call_site Called from:
+ ** - Application initialization.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param provider (minigui_log_provider_t): Callback to fetch logs.
+ **
+ ** @section pointers 
+ ** - provider: Owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Store the provider in @c global_log_provider.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_set_log_provider(minigui_log_provider_t provider) {
     global_log_provider = provider;
@@ -86,16 +128,29 @@ void minigui_set_log_provider(minigui_log_provider_t provider) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Clears all text from the table cells.
- *
- * @section call_site
- * Called by `update_table_with_logs` before repopulating.
- *
- * @return void
- *
- * Implementation Steps
- * 1. iterate through all rows.
- * 2. Set columns 0-3 to empty string.
+ ******************************************************************************
+ ** @brief Clears all text from the table cells.
+ **
+ ** @section call_site Called from:
+ ** - update_table_with_logs() before repopulating.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (table manipulation)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Iterate through all rows in the data_table.
+ ** 2. Set columns 0-3 (Time, Source, Level, Message) to empty strings.
+ ******************************************************************************
  ******************************************************************************/
 static void clear_table_cells(void) {
     if (!data_table) return;
@@ -111,21 +166,34 @@ static void clear_table_cells(void) {
 }
 
 /******************************************************************************
- * @brief Internal mock data provider for standalone UI development/simulator.
- * This is only compiled if MINIGUI_USE_MOCK_LOGS is defined.
- *
- * @param logs Output buffer
- * @param max_count Max logs
- * @param filter Data filter
- * @return Number of logs returned
- *
- * Implementation Steps
- * 1. Define a static array of mock log entries.
- * 2. Get current time.
- * 3. Loop through mock entries.
- * 4. Filter based on source.
- * 5. Formatting timestamp and copy data to output buffer.
- * 6. Return count of added logs.
+ ******************************************************************************
+ ** @brief Internal mock data provider for standalone UI development.
+ **
+ ** @section call_site Called from:
+ ** - update_table_with_logs() if no provider is registered.
+ **
+ ** @section dependencies Required Headers:
+ ** - time.h (for simulation)
+ **
+ ** @param logs (minigui_log_entry_t*): Output buffer.
+ ** @param max_count (size_t): Buffer capacity.
+ ** @param filter (const char*): Source filter.
+ **
+ ** @section pointers 
+ ** - logs: Pointer owned by caller.
+ ** - filter: Read-only string.
+ **
+ ** @section variables Internal Variables:
+ ** - @c mock_data (static struct[]): Simulated database.
+ ** - @c now (time_t): Simulated timestamp source.
+ **
+ ** @return size_t: Number of logs returned.
+ **
+ ** Implementation Steps:
+ ** 1. Return 0 if MINIGUI_USE_MOCK_LOGS is not defined.
+ ** 2. Iterate mock_data and apply filter.
+ ** 3. Copy formatted timestamp and strings to output buffer.
+ ******************************************************************************
  ******************************************************************************/
 static size_t internal_get_logs(minigui_log_entry_t *logs, size_t max_count, const char *filter) {
 #ifdef MINIGUI_USE_MOCK_LOGS
@@ -164,22 +232,34 @@ static size_t internal_get_logs(minigui_log_entry_t *logs, size_t max_count, con
 }
 
 /******************************************************************************
- * @brief Fetches logs and updates the table UI.
- *
- * @section call_site
- * Called by refresh button, filter change, or init timer.
- *
- * @param filter The source string to filter by (or "ALL").
- *
- * @return void
- *
- * Implementation Steps
- * 1. Show "Loading..." message in table.
- * 2. Allocate memory for temp log buffer.
- * 3. Fetch logs from provider (or mock).
- * 4. Resize table rows to match log count.
- * 5. Populate table cells with log data.
- * 6. Free temp buffer.
+ ******************************************************************************
+ ** @brief Fetches logs and updates the table UI.
+ **
+ ** @section call_site Called from:
+ ** - refresh_button_cb()
+ ** - filter_event_cb()
+ ** - deferred_load_cb()
+ **
+ ** @section dependencies Required Headers:
+ ** - stdlib.h (malloc/free)
+ **
+ ** @param filter (const char*): The source string to filter by (or "ALL").
+ **
+ ** @section pointers 
+ ** - filter: Read-only string.
+ **
+ ** @section variables Internal Variables:
+ ** - @c logs (minigui_log_entry_t*): Heap-allocated temp buffer for fetch.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Show "Loading..." message and force immediate screen refresh.
+ ** 2. Allocate heap buffer for log retrieval.
+ ** 3. Fetch data from global provider or fallback mock.
+ ** 4. Update table row count and populate cells.
+ ** 5. Free temporary heap memory.
+ ******************************************************************************
  ******************************************************************************/
 static void update_table_with_logs(const char *filter) {
     if (!data_table) return;
@@ -242,13 +322,29 @@ static void update_table_with_logs(const char *filter) {
 }
 
 /******************************************************************************
- * @brief Handle refresh button click
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Get current filter value from dropdown.
- * 2. Call `update_table_with_logs`.
+ ******************************************************************************
+ ** @brief Handle refresh button click.
+ **
+ ** @section call_site Called from:
+ ** - Refresh button LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - None (Standard UI handler)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Retrieve current filter string from the dropdown.
+ ** 2. Trigger @c update_table_with_logs immediately.
+ ******************************************************************************
  ******************************************************************************/
 static void refresh_button_cb(lv_event_t * e) {
     (void)e; // Unused parameter
@@ -266,13 +362,29 @@ static void refresh_button_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Handle filter dropdown change
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Get new filter str.
- * 2. Call `update_table_with_logs`.
+ ******************************************************************************
+ ** @brief Handle filter dropdown change.
+ **
+ ** @section call_site Called from:
+ ** - Filter dropdown LV_EVENT_VALUE_CHANGED.
+ **
+ ** @section dependencies Required Headers:
+ ** - None (Standard UI handler)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Get the new selected string from the dropdown target.
+ ** 2. Refresh the table with the new filter.
+ ******************************************************************************
  ******************************************************************************/
 static void filter_event_cb(lv_event_t * e) {
     lv_obj_t * dropdown = lv_event_get_target(e);
@@ -283,13 +395,29 @@ static void filter_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Timer callback for initial load
- *
- * @param t Timer
- *
- * Implementation Steps
- * 1. Verify "ALL" logs.
- * 2. Delete the timer.
+ ******************************************************************************
+ ** @brief Timer callback for initial load.
+ **
+ ** @section call_site Called from:
+ ** - Deferred timer created in create_screen_logs().
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param t (lv_timer_t*): Pointer to the triggering timer.
+ **
+ ** @section pointers 
+ ** - t: Managed by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Call update_table_with_logs("ALL").
+ ** 2. Self-destruct the timer handle.
+ ******************************************************************************
  ******************************************************************************/
 static void deferred_load_cb(lv_timer_t * t) {
     update_table_with_logs("ALL");
@@ -301,12 +429,28 @@ static void deferred_load_cb(lv_timer_t * t) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Manually triggers a refresh of the log table.
- *
- * @param filter The source filter string (e.g., "WIFI") or NULL/ALL.
- *
- * Implementation Steps
- * 1. Call `update_table_with_logs`.
+ ******************************************************************************
+ ** @brief Manually triggers a refresh of the log table.
+ **
+ ** @section call_site Called from:
+ ** - External modules to force a sync.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param filter (const char*): Source filter string or NULL/ALL.
+ **
+ ** @section pointers 
+ ** - filter: Read-only string.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Transparently proxy callers to internal update logic.
+ ******************************************************************************
  ******************************************************************************/
 void refresh_log_table(const char *filter) {
     update_table_with_logs(filter ? filter : "ALL");
@@ -317,16 +461,31 @@ void refresh_log_table(const char *filter) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Calculate optimal column widths for 800px display
- *
- * @section call_site
- * Called on init and resize.
- *
- * Implementation Steps
- * 1. Determine available width (default 800px).
- * 2. Subtract padding.
- * 3. Set fixed widths for Time, Source, Level.
- * 4. Give remaining width to Message.
+ ******************************************************************************
+ ** @brief Calculate optimal column widths based on available width.
+ **
+ ** @section call_site Called from:
+ ** - create_screen_logs()
+ ** - parent_size_changed_cb()
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (geometry API)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Determine actual width (defaulting to 800px if unknown).
+ ** 2. Subtract padding for available drawing area.
+ ** 3. Apply static widths for small columns and flexible remainder for message.
+ ******************************************************************************
  ******************************************************************************/
 static void calculate_table_layout(void) {
     if (!data_table || !log_screen_parent) return;
@@ -357,12 +516,28 @@ static void calculate_table_layout(void) {
 }
 
 /******************************************************************************
- * @brief Recalculate layout when parent size changes
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Call `calculate_table_layout`.
+ ******************************************************************************
+ ** @brief Recalculate layout when parent size changes.
+ **
+ ** @section call_site Called from:
+ ** - parent object LV_EVENT_SIZE_CHANGED.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Invoke @c calculate_table_layout with new parent context.
+ ******************************************************************************
  ******************************************************************************/
 static void parent_size_changed_cb(lv_event_t * e) {
     (void)e; // Unused parameter
@@ -374,20 +549,32 @@ static void parent_size_changed_cb(lv_event_t * e) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Creates the Logs screen object.
- *
- * @param parent The main content area.
- *
- * Implementation Steps
- * 1. Set styles (black bg) on parent.
- * 2. Create Header Container (40px height).
- * 3. Create Header Label ("TIME | FROM | ...").
- * 4. Create Filter Dropdown (aligned right).
- * 5. Create Refresh Button (aligned right).
- * 6. Create Data Table (filling remaining height).
- * 7. Configure Table columns and styling.
- * 8. Set initial "Loading..." state.
- * 9. Start timer for deferred data load.
+ ******************************************************************************
+ ** @brief Creates the Logs screen object.
+ **
+ ** @section call_site Called from:
+ ** - minigui_switch_screen() via mapping.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for table and dropdown widgets)
+ **
+ ** @param parent (lv_obj_t*): The content area container.
+ **
+ ** @section pointers 
+ ** - parent: Owned by minigui.c.
+ **
+ ** @section variables Internal Variables:
+ ** - @c header_cont (lv_obj_t*): Top control bar.
+ ** - @c data_table (lv_obj_t*): Core log display widget.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Style the parent with 100% black background.
+ ** 2. Construct the 40px fixed header with filter dropdown and refresh button.
+ ** 3. Create and configure the LVGL table widget for the remainder.
+ ** 4. Initialize "Loading" state and trigger deferred data fetch.
+ ******************************************************************************
  ******************************************************************************/
 void create_screen_logs(lv_obj_t *parent) {
     log_screen_parent = parent; // Store for later calculations

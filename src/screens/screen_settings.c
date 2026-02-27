@@ -1,7 +1,17 @@
+/******************************************************************************
+ ******************************************************************************
+ ** @brief     Settings Screen Implementation.
+ **
+ **            Provides a multi-category settings interface (Screen, Network,
+ **            System, Monitor) with a split-pane layout and on-screen keyboard.
+ **
+ **            @section screen_settings.c - Settings UI implementation.
+ ******************************************************************************
+ ******************************************************************************/
 
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
  ******************************************************************************
  ******************************************************************************/
 #include <string.h>
@@ -9,14 +19,14 @@
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 // None (lvgl included via header)
 
 /******************************************************************************
  ******************************************************************************
- * 3. Project-Specific Components (Local)
+ ** 3. Project-Specific Components (Local)
  ******************************************************************************
  ******************************************************************************/
 #include "screens/screen_settings.h"
@@ -44,20 +54,28 @@ typedef enum {
  ******************************************************************************/
 
 /******************************************************************************
- * @brief Dynamic content container for the right side of the split view
- * @section scope
- * Internal to screen_settings.c
- * @section rationale
- * Cleared and repopulated when switching categories.
+ ******************************************************************************
+ ** @brief Dynamic content container for the right side of the split view.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to screen_settings.c.
+ **
+ ** @section rationale Rationale:
+ ** - Cleared and repopulated when switching categories.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *content_pane = NULL;
 
 /******************************************************************************
- * @brief Shared on-screen keyboard
- * @section scope
- * Internal to screen_settings.c
- * @section rationale
- * Reused across any input fields in the settings screen.
+ ******************************************************************************
+ ** @brief Shared on-screen keyboard.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to screen_settings.c.
+ **
+ ** @section rationale Rationale:
+ ** - Reused across any input fields in the settings screen.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *kb = NULL;
 
@@ -97,13 +115,30 @@ static void create_monitor_panel(lv_obj_t *parent);
 // ============================================================================
 
 /******************************************************************************
- * @brief Handle keyboard events (close on OK/Cancel).
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Hide keyboard if READY or CANCEL is pressed.
- * 2. Unfocus the text area.
+ ******************************************************************************
+ ** @brief Handle keyboard events (close on OK/Cancel).
+ **
+ ** @section call_site Called from:
+ ** - Virtual keyboard (LV_EVENT_READY or LV_EVENT_CANCEL).
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (keyboard API)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Check if the "Done" (Ready) or "Cancel" button was pressed.
+ ** 2. Hide the keyboard object.
+ ** 3. Remove focus state from the associated text area (@c ta_pass).
+ ******************************************************************************
  ******************************************************************************/
 static void kb_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
@@ -116,13 +151,29 @@ static void kb_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Handle text area focus to show keyboard.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. If focused, attach keyboard to this text area.
- * 2. Show the keyboard.
+ ******************************************************************************
+ ** @brief Handle text area focus to show keyboard.
+ **
+ ** @section call_site Called from:
+ ** - Text area (LV_EVENT_FOCUSED).
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (textarea and keyboard linking)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Link the global keyboard (@c kb) to the focused text area.
+ ** 2. Unhide the keyboard.
+ ******************************************************************************
  ******************************************************************************/
 static void ta_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
@@ -137,15 +188,31 @@ static void ta_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Handle "Scan" button click.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Udpate UI to show scanning state.
- * 2. Call `minigui_scan_wifi` to get network list.
- * 3. Populate dropdown with results or message if none found.
- * 4. Restore UI state.
+ ******************************************************************************
+ ** @brief Handle "Scan" button click for WiFi discovery.
+ **
+ ** @section call_site Called from:
+ ** - Scan button LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - minigui.h (for minigui_scan_wifi)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables Internal Variables:
+ ** - @c networks (minigui_wifi_network_t[10]): Temp storage for scan results.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Set UI state to "Scanning..." and disable button.
+ ** 2. Trigger @c minigui_scan_wifi to fetch nearby networks.
+ ** 3. Populate the SSID dropdown (@c dd_ssid) with found SSIDs.
+ ** 4. Restore UI state (renable button).
+ ******************************************************************************
  ******************************************************************************/
 static void scan_wifi_event_cb(lv_event_t * e) {
     LV_LOG_USER("Scanning for WiFi networks...");
@@ -173,14 +240,30 @@ static void scan_wifi_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Handle "Save WiFi" button click.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Get selected SSID and entered password.
- * 2. Validate input.
- * 3. Call `minigui_save_wifi_credentials`.
+ ******************************************************************************
+ ** @brief Handle "Save WiFi" button click.
+ **
+ ** @section call_site Called from:
+ ** - Save button LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - minigui.h (for saving credentials)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables Internal Variables:
+ ** - @c creds (minigui_wifi_credentials_t): Buffer for SSID/Pass.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Extract selected SSID from dropdown and text from password area.
+ ** 2. Validate that a real network is selected.
+ ** 3. Pass credentials structure to the bridge saver.
+ ******************************************************************************
  ******************************************************************************/
 static void save_wifi_event_cb(lv_event_t * e) {
     minigui_wifi_credentials_t creds;
@@ -207,16 +290,32 @@ static void save_wifi_event_cb(lv_event_t * e) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Helper to create a horizontal separator line.
- *
- * @param parent Parent object.
- * @param margin_top Top margin in pixels.
- * @param margin_bottom Bottom margin in pixels.
- *
- * Implementation Steps
- * 1. Create 1px tall object.
- * 2. Set color to grey.
- * 3. Apply margins.
+ ******************************************************************************
+ ** @brief Helper to create a horizontal separator line.
+ **
+ ** @section call_site Called from:
+ ** - Various panel builders to segment UI areas.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (basic object styling)
+ **
+ ** @param parent (lv_obj_t*): Parent container.
+ ** @param margin_top (uint16_t): Space above the line.
+ ** @param margin_bottom (uint16_t): Space below the line.
+ **
+ ** @section pointers 
+ ** - parent: Managed by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Create a 1px tall object spanning 100% width.
+ ** 2. Configure background color (hex 0x555555) and cover opacity.
+ ** 3. Apply the specified vertical margins.
+ ******************************************************************************
  ******************************************************************************/
 static void create_separator(lv_obj_t *parent, uint16_t margin_top, uint16_t margin_bottom) {
     lv_obj_t *sep = lv_obj_create(parent);
@@ -233,13 +332,29 @@ static void create_separator(lv_obj_t *parent, uint16_t margin_top, uint16_t mar
 // ============================================================================
 
 /******************************************************************************
- * @brief Handle brilliance slider change.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Get value.
- * 2. Call `minigui_set_brightness`.
+ ******************************************************************************
+ ** @brief Handle brilliance slider change.
+ **
+ ** @section call_site Called from:
+ ** - Brightness slider LV_EVENT_VALUE_CHANGED.
+ **
+ ** @section dependencies Required Headers:
+ ** - minigui.h (for brightness bridge)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Extract the current percentage value from the slider.
+ ** 2. Forward the value to @c minigui_set_brightness.
+ ******************************************************************************
  ******************************************************************************/
 static void slider_event_cb(lv_event_t * e) {
     lv_obj_t * slider = lv_event_get_target(e);
@@ -249,13 +364,30 @@ static void slider_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Create the "Screen" settings panel.
- *
- * @param parent Content pane.
- *
- * Implementation Steps
- * 1. Add title.
- * 2. Add slider for brightness.
+ ******************************************************************************
+ ** @brief Create the "Screen" settings panel.
+ **
+ ** @section call_site Called from:
+ ** - switch_category() when Screen category is selected.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (widgets and layout)
+ **
+ ** @param parent (lv_obj_t*): The content pane container.
+ **
+ ** @section pointers 
+ ** - parent: Owned by screen_settings.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Create Display Settings header label.
+ ** 2. Create Brightness label and Slider widget.
+ ** 3. Attach slider_event_cb for real-time updates.
+ ******************************************************************************
  ******************************************************************************/
 static void create_screen_panel(lv_obj_t *parent) {
     lv_obj_t *lbl = lv_label_create(parent);
@@ -382,14 +514,30 @@ static void firmware_update_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Handle "Check for Updates" button click.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Simulate check.
- * 2. Toggle mock update status.
- * 3. Show/hide update button.
+ ******************************************************************************
+ ** @brief Handle "Check for Updates" button click.
+ **
+ ** @section call_site Called from:
+ ** - Check Updates button LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - None (Simulation)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Simulate a network check.
+ ** 2. Toggle the visibility of the "Install Update" button based on result.
+ ** 3. Update status text label.
+ ******************************************************************************
  ******************************************************************************/
 static void check_firmware_event_cb(lv_event_t * e) {
     LV_LOG_USER("Checking for firmware updates...");
@@ -412,13 +560,29 @@ static void check_firmware_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Create the "System" settings panel.
- *
- * @param parent Content pane.
- *
- * Implementation Steps
- * 1. Add Reboot button.
- * 2. Add Firmware section (version, check button, update button).
+ ******************************************************************************
+ ** @brief Create the "System" settings panel.
+ **
+ ** @section call_site Called from:
+ ** - switch_category() when System category is selected.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (layout and control widgets)
+ **
+ ** @param parent (lv_obj_t*): The content pane container.
+ **
+ ** @section pointers 
+ ** - parent: Owned by screen_settings.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Add Reboot button at the top.
+ ** 2. Construct Firmware section with version info and action buttons.
+ ******************************************************************************
  ******************************************************************************/
 static void create_system_panel(lv_obj_t *parent) {
     lv_obj_t *lbl = lv_label_create(parent);
@@ -469,13 +633,29 @@ static void create_system_panel(lv_obj_t *parent) {
 }
 
 /******************************************************************************
- * @brief Monitor refresh timer.
- *
- * @param timer LVGL timer
- *
- * Implementation Steps
- * 1. Get system stats.
- * 2. Update labels (Voltage, CPU, Flash, RAM).
+ ******************************************************************************
+ ** @brief Monitor refresh timer.
+ **
+ ** @section call_site Called from:
+ ** - lv_timer every 1000ms when Monitor panel is active.
+ **
+ ** @section dependencies Required Headers:
+ ** - minigui.h (for stats bridge fetch)
+ **
+ ** @param timer (lv_timer_t*): The trigger timer.
+ **
+ ** @section pointers 
+ ** - timer: Owned by LVGL.
+ **
+ ** @section variables Internal Variables:
+ ** - @c stats (minigui_system_stats_t): Freshly fetched data.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Call @c minigui_get_system_stats.
+ ** 2. Format and update labels for Voltage, CPU, Flash, and RAM.
+ ******************************************************************************
  ******************************************************************************/
 static void monitor_timer_cb(lv_timer_t *timer) {
     if (!lbl_voltage || !lbl_cpu || !lbl_flash || !lbl_ram) return;
@@ -504,13 +684,29 @@ static void monitor_timer_cb(lv_timer_t *timer) {
 }
 
 /******************************************************************************
- * @brief Clean up monitor panel resources.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Delete timer.
- * 2. Nullify pointers.
+ ******************************************************************************
+ ** @brief Clean up monitor panel resources.
+ **
+ ** @section call_site Called from:
+ ** - Content container LV_EVENT_DELETE.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Delete @c monitor_timer to stop polling.
+ ** 2. Nullify all UI pointers associated with the monitor panel.
+ ******************************************************************************
  ******************************************************************************/
 static void monitor_panel_delete_cb(lv_event_t * e) {
     if (monitor_timer) {
@@ -524,14 +720,30 @@ static void monitor_panel_delete_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Create the "Monitor" settings panel.
- *
- * @param parent Content pane.
- *
- * Implementation Steps
- * 1. Create a container for monitor elements (to handle cleanup).
- * 2. Add Voltage, CPU, Flash, RAM labels with separators.
- * 3. Start 1s timer to refresh stats.
+ ******************************************************************************
+ ** @brief Create the "Monitor" settings panel.
+ **
+ ** @section call_site Called from:
+ ** - switch_category() when Monitor category is selected.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (widgets)
+ **
+ ** @param parent (lv_obj_t*): The content pane container.
+ **
+ ** @section pointers 
+ ** - parent: Owned by screen_settings.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Create a dedicated @c monitor_cont to leverage LV_EVENT_DELETE.
+ ** 2. Populate container with statistics labels.
+ ** 3. Start high-frequency refresh timer (1s).
+ ******************************************************************************
  ******************************************************************************/
 static void create_monitor_panel(lv_obj_t *parent) {
     // Create a container specifically for the monitor contents
@@ -587,14 +799,31 @@ static void create_monitor_panel(lv_obj_t *parent) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Switches the active settings panel.
- *
- * @param cat The category to switch to.
- *
- * Implementation Steps
- * 1. Clean current content pane.
- * 2. Log navigation.
- * 3. Invoke specific panel creator based on category.
+ ******************************************************************************
+ ** @brief Switches the active settings panel.
+ **
+ ** @section call_site Called from:
+ ** - create_screen_settings() (default).
+ ** - category_event_cb()
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param cat (settings_category_t): The category to switch to.
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Log the navigation action.
+ ** 2. Call lv_obj_clean() on content_pane.
+ ** 3. Call the appropriate panel factory function.
+ ******************************************************************************
  ******************************************************************************/
 static void switch_category(settings_category_t cat) {
     current_category = cat;
@@ -628,13 +857,29 @@ static void switch_category(settings_category_t cat) {
 }
 
 /******************************************************************************
- * @brief Handle navigation button clicks.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Get category from user data.
- * 2. Call `switch_category`.
+ ******************************************************************************
+ ** @brief Handle navigation button clicks.
+ **
+ ** @section call_site Called from:
+ ** - Category button LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - None (Internal Router)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Extract category ID from the button's user data.
+ ** 2. Delegate to @c switch_category.
+ ******************************************************************************
  ******************************************************************************/
 static void category_event_cb(lv_event_t * e) {
     lv_obj_t * btn = lv_event_get_target(e);
@@ -647,12 +892,28 @@ static void category_event_cb(lv_event_t * e) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Handle screen delete to clean up globals.
- *
- * @param e LVGL event
- *
- * Implementation Steps
- * 1. Set global pointers (content_pane, kb) to NULL.
+ ******************************************************************************
+ ** @brief Handle screen delete to clean up globals.
+ **
+ ** @section call_site Called from:
+ ** - Main settings object LV_EVENT_DELETE.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Zero out global pointers that reference destroyed objects.
+ ******************************************************************************
  ******************************************************************************/
 static void settings_screen_event_cb(lv_event_t * e) {
     lv_event_code_t code = lv_event_get_code(e);
@@ -663,18 +924,31 @@ static void settings_screen_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Creates the Settings screen object with its multi-pane layout.
- *
- * @param parent The `content_area` object.
- *
- * Implementation Steps
- * 1. Setup screen styles.
- * 2. Create Main Horizontal Container (Split View).
- * 3. Create Left Nav Pane (Fixed 200px).
- * 4. Create Nav Buttons (Screen, Network, System, Monitor).
- * 5. Create Right Content Pane (Flexible).
- * 6. Create Hidden Keyboard.
- * 7. Default to Screen category.
+ ******************************************************************************
+ ** @brief Creates the Settings screen object with its multi-pane layout.
+ **
+ ** @section call_site Called from:
+ ** - minigui_switch_screen() via mapping.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (advanced layouts)
+ **
+ ** @param parent (lv_obj_t*): The content_area container.
+ **
+ ** @section pointers 
+ ** - parent: Owned by minigui.c.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Define split layout (Nav/Content).
+ ** 2. Populate left pane with category routing buttons.
+ ** 3. Initialize keyboard for user input.
+ ** 4. Trigger default (Screen) category view.
+ ******************************************************************************
  ******************************************************************************/
 void create_screen_settings(lv_obj_t *parent) {
     lv_obj_add_event_cb(parent, settings_screen_event_cb, LV_EVENT_DELETE, NULL);

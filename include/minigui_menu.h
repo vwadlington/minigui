@@ -1,19 +1,37 @@
+/******************************************************************************
+ ******************************************************************************
+ ** @brief     MiniGUI Navigation Menu API.
+ **
+ **            This header defines the interface for the sidebar navigation menu,
+ **            which allows users to switch between different screens.
+ **
+ **            @section minigui_menu.h - Sidebar menu interface.
+ ******************************************************************************
+ ******************************************************************************/
+
 #ifndef MINIGUI_MENU_H
 #define MINIGUI_MENU_H
 
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
  ******************************************************************************
  ******************************************************************************/
-// None
+// None required for this header
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 #include "lvgl.h"
+
+/******************************************************************************
+ ******************************************************************************
+ ** 3. Project-Specific Components (Local)
+ ******************************************************************************
+ ******************************************************************************/
+// None
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,30 +39,55 @@ extern "C" {
 
 /******************************************************************************
  ******************************************************************************
- * PUBLIC API FUNCTIONS
+ ** PUBLIC API FUNCTIONS
  ******************************************************************************
  ******************************************************************************/
 
-/**
- * @brief Initializes the global navigation menu.
- *
- * @section call_site
- * Called by `minigui_init()` during system startup.
- *
- * @section dependencies
- * - `lvgl`: To create the drawer and blocker objects.
- */
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Initializes the global navigation menu.
+ **
+ ** @section call_site Called from:
+ ** - minigui_init() during system startup.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (to create the drawer and blocker objects)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ ******************************************************************************
+ ******************************************************************************/
 void minigui_menu_init(void);
 
-/**
- * @brief Toggles the visibility of the navigation menu.
- *
- * @section call_site
- * Called by the hamburger button (open) or the blocker/nav buttons (close).
- *
- * @section dependencies
- * - `lvgl`: To animate the drawer position.
- */
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Toggles the visibility of the navigation menu.
+ **
+ ** @section call_site Called from:
+ ** - Hamburger button (open).
+ ** - Blocker/nav buttons (close).
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (to animate the drawer position)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ ******************************************************************************
+ ******************************************************************************/
 void minigui_menu_toggle(void);
 
 #ifdef __cplusplus

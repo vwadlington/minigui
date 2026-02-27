@@ -1,3 +1,11 @@
+# ==============================================================================
+# File: .gitignore
+# Description: Version control exclusion rules for the MiniGUI submodule.
+# Responsibilities:
+# 1. Exclude compiler output, object files, and build artifacts.
+# 2. Filter out development-specific temporary files and debug symbols.
+# ==============================================================================
+
 # Prerequisites
 *.d
 

@@ -1,7 +1,18 @@
+/******************************************************************************
+ ******************************************************************************
+ ** @brief     MiniGUI Main UI Manager.
+ **
+ **            This module implements the core UI lifecycle, including
+ **            initialization of the main flex layout, status bar, content area,
+ **            and screen switching logic.
+ **
+ **            @section minigui.c - Main implementation file.
+ ******************************************************************************
+ ******************************************************************************/
 
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
  ******************************************************************************
  ******************************************************************************/
 #include <time.h>
@@ -10,14 +21,14 @@
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 // None directly here, lvgl is included via minigui.h
 
 /******************************************************************************
  ******************************************************************************
- * 3. Project-Specific Components (Local)
+ ** 3. Project-Specific Components (Local)
  ******************************************************************************
  ******************************************************************************/
 #include "minigui.h"
@@ -33,59 +44,160 @@
  ******************************************************************************/
 
 /******************************************************************************
- * @brief Reference to the main flex container
- * @section scope
- * Internal to minigui.c
- * @section rationale
- * Acts as the root parent for all UI elements created by this module.
+ ******************************************************************************
+ ** @brief Reference to the main flex container.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Acts as the root parent for all UI elements created by this module.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *main_container = NULL;
 
 /******************************************************************************
- * @brief Reference to the top status bar
- * @section scope
- * Internal to minigui.c
- * @section rationale
- * Holds the menu button, title, and clock.
+ ******************************************************************************
+ ** @brief Reference to the top status bar.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Holds the menu button, title, and clock.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *status_bar = NULL;
 
 /******************************************************************************
- * @brief Reference to the dynamic content area
- * @section scope
- * Internal to minigui.c
- * @section rationale
- * This is where different screens (Home, Logs, etc.) inject their content.
+ ******************************************************************************
+ ** @brief Reference to the dynamic content area.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - This is where different screens (Home, Logs, etc.) inject their content.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *content_area = NULL;
 
 /******************************************************************************
- * @brief Reference to the screen title label
- * @section scope
- * Internal to minigui.c
- * @section rationale
- * Updated whenever the screen changes to reflect the current view name.
+ ******************************************************************************
+ ** @brief Reference to the screen title label.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Updated whenever the screen changes to reflect the current view name.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *lbl_title = NULL;
 
 /******************************************************************************
- * @brief Reference to the clock label
- * @section scope
- * Internal to minigui.c
- * @section rationale
- * Updated every second by a timer to show current time.
+ ******************************************************************************
+ ** @brief Reference to the clock label.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Updated every second by a timer to show current time.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *lbl_clock = NULL;
 
 // Callback hooks
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Hook for brightness control.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Stores the registered callback to proxy brightness adjustments to hardware.
+ ******************************************************************************
+ ******************************************************************************/
 static minigui_brightness_cb_t brightness_cb = NULL;
+
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Hook for time retrieval.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Overrides standard C time with a custom provider (e.g., SNTP) if present.
+ ******************************************************************************
+ ******************************************************************************/
 static minigui_time_provider_t global_time_provider = NULL;
+
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Hook for WiFi credential saving.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Used by the Settings screen to persist network settings.
+ ******************************************************************************
+ ******************************************************************************/
 static minigui_wifi_save_cb_t wifi_save_cb = NULL;
+
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Hook for WiFi scanning.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Supplies the Settings screen with a list of available networks.
+ ******************************************************************************
+ ******************************************************************************/
 static minigui_wifi_scan_provider_t wifi_scan_provider = NULL;
+
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Hook for system statistics retrieval.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Provides data for the monitor dashboard (CPU, RAM, Flash).
+ ******************************************************************************
+ ******************************************************************************/
 static minigui_system_stats_provider_t system_stats_provider = NULL;
+
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Hook for network status retrieval.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Provides connection details (IP, MAC) for the Settings screen.
+ ******************************************************************************
+ ******************************************************************************/
 static minigui_network_status_provider_t network_status_provider = NULL;
 
-// Screen Creator Array
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Mapping of screen IDs to their creator functions.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui.c.
+ **
+ ** @section rationale Rationale:
+ ** - Decouples screen switching logic from individual implementations.
+ ******************************************************************************
+ ******************************************************************************/
 static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
     [MINIGUI_SCREEN_HOME]     = create_screen_home,
     [MINIGUI_SCREEN_LOGS]     = create_screen_logs,
@@ -97,33 +209,35 @@ static const ui_screen_creator_t screen_creators[MINIGUI_SCREEN_COUNT] = {
 // ============================================================================
 
 /******************************************************************************
- * @brief Updates the clock label with current system time.
- *
- * @section call_site
- * Called by `lv_timer` every 1000ms.
- *
- * @section dependencies
- * - `time.h`: For standard time functions.
- * - `lvgl`: For label updating.
- *
- * @param timer The LVGL timer instance triggering this callback.
- *
- * @section pointers
- * - `timer`: Owned by LVGL, unused in logic.
- *
- * @section variables
- * - `buf`: Character buffer [32] to hold the formatted time string. Rationale: Temporary storage for strftime output.
- * - `now`: `time_t` holding current epoch time. Rationale: Source for local time conversion.
- * - `tm_info`: `struct tm*` holding broken-down time. Rationale: Needed for formatting.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Check if the clock label exists; return if not.
- * 2. If a global time provider is registered, use it to get the time string.
- * 3. Otherwise, get the system time using `time(NULL)`.
- * 4. Format the time as "Day Mon/Day Hr:Min:Sec".
- * 5. Update the LVGL label text with the formatted string.
+ ******************************************************************************
+ ** @brief Updates the clock label with current system time.
+ **
+ ** @section call_site Called from:
+ ** - lv_timer every 1000ms.
+ ** - minigui_set_time_provider() for an immediate update.
+ **
+ ** @section dependencies Required Headers:
+ ** - time.h (for standard time functions when no provider is set)
+ **
+ ** @param timer (lv_timer_t*): The LVGL timer instance triggering this callback.
+ **
+ ** @section pointers 
+ ** - timer: Owned by LVGL, can be NULL if called manually.
+ **
+ ** @section variables Internal Variables:
+ ** - @c buf (char[32]): Storage for the formatted time string.
+ ** - @c now (time_t): Epoch time from system clock.
+ ** - @c tm_info (struct tm*): Broken down time structure.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Check if the clock label exists; return if not.
+ ** 2. If a global time provider is registered, use it to populate the buffer.
+ ** 3. Otherwise, fall back to standard C time and localtime.
+ ** 4. Format the time as "%a %m/%d %H:%M:%S".
+ ** 5. Update the LVGL label text.
+ ******************************************************************************
  ******************************************************************************/
 static void update_clock_cb(lv_timer_t *timer) {
     (void)timer;
@@ -147,21 +261,29 @@ static void update_clock_cb(lv_timer_t *timer) {
 }
 
 /******************************************************************************
- * @brief Event wrapper to open the menu
- *
- * @section call_site
- * Assigned to the hamburger button's `LV_EVENT_CLICKED`.
- *
- * @section dependencies
- * - `minigui_menu.h`: To toggle the menu visibility.
- *
- * @param e LVGL event object.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Log the user interaction.
- * 2. Call `minigui_menu_toggle()` to show/hide the sidebar.
+ ******************************************************************************
+ ** @brief Event wrapper to open the menu.
+ **
+ ** @section call_site Called from:
+ ** - Hamburger button's LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - minigui_menu.h (for minigui_menu_toggle)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Log the user interaction using LV_LOG_USER.
+ ** 2. Call minigui_menu_toggle() to show/hide the sidebar.
+ ******************************************************************************
  ******************************************************************************/
 static void menu_btn_event_cb(lv_event_t * e) {
     LV_LOG_USER("Hamburger menu toggled");
@@ -169,31 +291,33 @@ static void menu_btn_event_cb(lv_event_t * e) {
 }
 
 /******************************************************************************
- * @brief Ensures the hamburger button is a perfect square.
- *
- * @section call_site
- * Assigned to the hamburger button's `LV_EVENT_SIZE_CHANGED`.
- *
- * @section dependencies
- * - `lvgl`: For object geometry manipulation.
- *
- * @param e LVGL event object.
- *
- * @section pointers
- * - `e`: Owned by LVGL, contains target object.
- *
- * @section variables
- * - `btn`: target object. Rationale: The button being resized.
- * - `parent`: parent object. Rationale: The status bar, whose height determines the button size.
- * - `h`: height of the parent. Rationale: Used to set the width.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Retrieve the button object from the event.
- * 2. Retrieve the parent object (status bar).
- * 3. Get the parent's height.
- * 4. Set the button's width equal to the parent's height to force a square aspect ratio.
+ ******************************************************************************
+ ** @brief Ensures the hamburger button is a perfect square.
+ **
+ ** @section call_site Called from:
+ ** - Hamburger button's LV_EVENT_SIZE_CHANGED.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for object geometry manipulation)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables Internal Variables:
+ ** - @c btn (lv_obj_t*): The button object being resized.
+ ** - @c parent (lv_obj_t*): The status bar parent.
+ ** - @c h (int32_t): Height of the parent status bar.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Retrieve the button object from the event.
+ ** 2. Retrieve the parent status bar.
+ ** 3. Get the parent's height.
+ ** 4. Set the button's width equal to that height to ensure a 1:1 ratio.
+ ******************************************************************************
  ******************************************************************************/
 static void sync_square_size_cb(lv_event_t * e) {
     lv_obj_t * btn = lv_event_get_target(e);
@@ -334,34 +458,36 @@ void minigui_init(void) {
 
 /******************************************************************************
  ******************************************************************************
- * @brief Switch the active screen rendered in the main content area.
- *
- * @section call_site
- * Called internally on init, or by the menu when a user selects a page, or externally.
- *
- * @section dependencies
- * - `lvgl`: For UI cleanup, creation, and thread-safe locking.
- * - `screens/*`: Implementations for each screen.
- *
- * @param screen_type The enum ID of the screen to switch to (0 to MINIGUI_SCREEN_COUNT-1).
- *
- * @section pointers
- * - None
- *
- * @section variables
- * - `titles`: Array of string literals. Rationale: Mappings from enum ID to display title.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Validate the screen ID and existence of `content_area`.
- * 2. Log the screen switch event.
- * 3. Acquire LVGL lock (`lv_lock`) to prevent concurrent drawing issues.
- * 4. Clear all children from `content_area` to remove the old screen.
- * 5. Reset flex/scroll styles on `content_area`.
- * 6. Update the title label based on the new screen ID.
- * 7. Invoke the specific screen creator function to build the new UI.
- * 8. Release LVGL lock (`lv_unlock`).
+ ** @brief Switch the active screen rendered in the main content area.
+ **
+ ** @section call_site Called from:
+ ** - minigui_init() for initial screen set.
+ ** - Menu system interaction.
+ ** - External navigation triggers.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for UI cleanup and creation)
+ **
+ ** @param screen_type (minigui_screen_t): The ID of the screen to switch to.
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables Internal Variables:
+ ** - @c titles (const char*[]): Array of screen display titles.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Validate the screen ID and existence of content_area.
+ ** 2. Log the screen switch event.
+ ** 3. Acquire LVGL lock (lv_lock).
+ ** 4. Clear all children from content_area.
+ ** 5. Reset scroll and flex properties on content_area.
+ ** 6. Update the title label text.
+ ** 7. Invoke the creator function for the requested screen if it exists.
+ ** 8. Release LVGL lock (lv_unlock).
+ ******************************************************************************
  ******************************************************************************/
 void minigui_switch_screen(minigui_screen_t screen_type) {
     if (screen_type >= MINIGUI_SCREEN_COUNT || !content_area) return;
@@ -382,61 +508,139 @@ void minigui_switch_screen(minigui_screen_t screen_type) {
     lv_unlock();
 }
 
-// --- Bridge Functions ---
-
 /******************************************************************************
- * @brief Register a callback for hardware brightness control
- *
- * @param cb Function to handle brightness changes
- *
- * Implementation Steps
- * 1. Store the provided callback pointer in `brightness_cb`.
+ ******************************************************************************
+ ** @brief Register a callback for hardware brightness control.
+ **
+ ** @section call_site Called from:
+ ** - System initialization to link UI to PWM driver.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param cb (minigui_brightness_cb_t): Function to handle brightness changes.
+ **
+ ** @section pointers 
+ ** - cb: Function pointer owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Store the provided callback pointer in the internal @c brightness_cb variable.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_register_brightness_cb(minigui_brightness_cb_t cb) { brightness_cb = cb; }
 
 /******************************************************************************
- * @brief Register a callback for WiFi configuration saving
- *
- * @param cb The function pointer to handle saving credentials
- *
- * Implementation Steps
- * 1. Store the provided callback pointer in `wifi_save_cb`.
+ ******************************************************************************
+ ** @brief Register a callback for WiFi configuration saving.
+ **
+ ** @section call_site Called from:
+ ** - System initialization to handle NVS persistence.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param cb (minigui_wifi_save_cb_t): Callback for credential saving.
+ **
+ ** @section pointers 
+ ** - cb: Function pointer owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Store the provided callback pointer in the internal @c wifi_save_cb variable.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_register_wifi_save_cb(minigui_wifi_save_cb_t cb) {
     wifi_save_cb = cb;
 }
 
 /******************************************************************************
- * @brief Register a callback for WiFi scanning
- *
- * @param provider The function pointer to perform network scanning
- *
- * Implementation Steps
- * 1. Store the provided callback pointer in `wifi_scan_provider`.
+ ******************************************************************************
+ ** @brief Register a callback for WiFi scanning.
+ **
+ ** @section call_site Called from:
+ ** - System initialization to enable network discovery in Settings.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param provider (minigui_wifi_scan_provider_t): Callback for network scanning.
+ **
+ ** @section pointers 
+ ** - provider: Function pointer owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Store the provided callback pointer in the internal @c wifi_scan_provider variable.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_register_wifi_scan_provider(minigui_wifi_scan_provider_t provider) {
     wifi_scan_provider = provider;
 }
 
 /******************************************************************************
- * @brief Register a callback for system statistics monitoring
- *
- * @param provider The function pointer to retrieve system stats
- *
- * Implementation Steps
- * 1. Store the provided callback pointer in `system_stats_provider`.
+ ******************************************************************************
+ ** @brief Register a callback for system statistics monitoring.
+ **
+ ** @section call_site Called from:
+ ** - System initialization to provide health data to the UI.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param provider (minigui_system_stats_provider_t): Callback for stats retrieval.
+ **
+ ** @section pointers 
+ ** - provider: Function pointer owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Store the provided callback pointer in the internal @c system_stats_provider variable.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_register_system_stats_provider(minigui_system_stats_provider_t provider) {
     system_stats_provider = provider;
 }
 
 /******************************************************************************
- * @brief Register a callback for network status monitoring
- *
- * @param provider The function pointer to retrieve network status
- *
- * Implementation Steps
- * 1. Store the provided callback pointer in `network_status_provider`.
+ ******************************************************************************
+ ** @brief Register a callback for network status monitoring.
+ **
+ ** @section call_site Called from:
+ ** - System initialization to provide IP/MAC info.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param provider (minigui_network_status_provider_t): Callback for status retrieval.
+ **
+ ** @section pointers 
+ ** - provider: Function pointer owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Store the provided callback pointer in the internal @c network_status_provider variable.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_register_network_status_provider(minigui_network_status_provider_t provider) {
     network_status_provider = provider;
@@ -477,41 +681,89 @@ void minigui_set_time_provider(minigui_time_provider_t provider) {
 }
 
 /******************************************************************************
- * @brief Set screen brightness (proxies to registered callback)
- *
- * @param brightness Target brightness value (0-255)
- *
- * Implementation Steps
- * 1. Check if a callback is registered.
- * 2. Invoke the callback with the new brightness value.
+ ******************************************************************************
+ ** @brief Set screen brightness (proxies to registered callback).
+ **
+ ** @section call_site Called from:
+ ** - Settings screen brightness slider.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param brightness (uint8_t): Target brightness value (0-255).
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Check if a callback is registered in @c brightness_cb.
+ ** 2. If present, invoke it with the new brightness value.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_set_brightness(uint8_t brightness) { if (brightness_cb) brightness_cb(brightness); }
 
 /******************************************************************************
- * @brief Internal helper to trigger the WiFi save callback.
- *
- * @param creds Pointer to the collected credentials
- *
- * Implementation Steps
- * 1. Check if `wifi_save_cb` is registered.
- * 2. Execute the callback with the credentials.
+ ******************************************************************************
+ ** @brief Internal helper to trigger the WiFi save callback.
+ **
+ ** @section call_site Called from:
+ ** - Settings screen WiFi panel submission.
+ **
+ ** @section dependencies Required Headers:
+ ** - None
+ **
+ ** @param creds (const minigui_wifi_credentials_t*): Collected credentials.
+ **
+ ** @section pointers 
+ ** - creds: Pointer to static or local credentials structure.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Check if @c wifi_save_cb is registered.
+ ** 2. Execute the callback with the provided credentials.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_save_wifi_credentials(const minigui_wifi_credentials_t *creds) {
     if (wifi_save_cb) wifi_save_cb(creds);
 }
 
 /******************************************************************************
- * @brief Internal helper to trigger the WiFi scan.
- *
- * @param networks Output buffer
- * @param max_count Capacity of the buffer
- * @return Number of networks found
- *
- * Implementation Steps
- * 1. If a real provider is registered, delegate to it.
- * 2. Otherwise, use a simulated list of mock networks.
- * 3. Populate simululated networks with mock SSID and RSSI data.
- * 4. Return the number of networks found (max 5).
+ ******************************************************************************
+ ** @brief Internal helper to trigger a WiFi scan.
+ **
+ ** @section call_site Called from:
+ ** - Settings screen to populate network list.
+ **
+ ** @section dependencies Required Headers:
+ ** - string.h (for strncpy)
+ **
+ ** @param networks (minigui_wifi_network_t*): Output buffer for results.
+ ** @param max_count (size_t): Capacity of the buffer.
+ **
+ ** @section pointers 
+ ** - networks: Pointer to buffer owned by caller.
+ **
+ ** @section variables Internal Variables:
+ ** - @c mock_ssids (const char*[]): Simulated network names.
+ ** - @c count (size_t): Number of results to return.
+ **
+ ** @return size_t: Number of networks actually found.
+ **
+ ** Implementation Steps:
+ ** 1. If a real provider is registered, delegate the scan to it.
+ ** 2. Otherwise, use simulated mock network data.
+ ** 3. Populate caller buffer with mock SSIDs and RSSIs.
+ ** 4. Return the result count.
+ ******************************************************************************
  ******************************************************************************/
 size_t minigui_scan_wifi(minigui_wifi_network_t *networks, size_t max_count) {
     if (wifi_scan_provider) {
@@ -532,14 +784,29 @@ size_t minigui_scan_wifi(minigui_wifi_network_t *networks, size_t max_count) {
 }
 
 /******************************************************************************
- * @brief Internal helper to retrieve system statistics.
- *
- * @param stats Output pointer to fill
- *
- * Implementation Steps
- * 1. If a real provider is registered, delegate to it.
- * 2. Otherwise, fill the stats structure with simulated data.
- * 3. Simulate fluctuating voltage and CPU usage using `lv_tick_get()`.
+ ******************************************************************************
+ ** @brief Internal helper to retrieve system statistics.
+ **
+ ** @section call_site Called from:
+ ** - Monitor panel to refresh dashboard data.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for lv_tick_get simulation)
+ **
+ ** @param stats (minigui_system_stats_t*): Output pointer to fill.
+ **
+ ** @section pointers 
+ ** - stats: Pointer to struct owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. If a real provider is registered, delegate the request.
+ ** 2. Otherwise, fill the structure with mock data fluctuating based on ticks.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_get_system_stats(minigui_system_stats_t *stats) {
     if (system_stats_provider) {
@@ -557,13 +824,29 @@ void minigui_get_system_stats(minigui_system_stats_t *stats) {
 }
 
 /******************************************************************************
- * @brief Internal helper to retrieve network status.
- *
- * @param status Output pointer to fill
- *
- * Implementation Steps
- * 1. If a real provider is registered, delegate to it.
- * 2. Otherwise, return a hardcoded "Connected" status with mock IP/MAC.
+ ******************************************************************************
+ ** @brief Internal helper to retrieve network status.
+ **
+ ** @section call_site Called from:
+ ** - Network panel to display IP/MAC/SSID.
+ **
+ ** @section dependencies Required Headers:
+ ** - string.h (for strncpy)
+ **
+ ** @param status (minigui_network_status_t*): Output pointer to fill.
+ **
+ ** @section pointers 
+ ** - status: Pointer to struct owned by caller.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. If a real provider is registered, delegate the request.
+ ** 2. Otherwise, populate with mock "Connected" status.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_get_network_status(minigui_network_status_t *status) {
     if (network_status_provider) {
@@ -582,11 +865,24 @@ void minigui_get_network_status(minigui_network_status_t *status) {
 }
 
 /******************************************************************************
- * @brief Internal helper to get the main content area (stage).
- *
- * @return Pointer to the main content container
- *
- * Implementation Steps
- * 1. Return the static `content_area` pointer.
+ ******************************************************************************
+ ** @brief Internal helper to get the main content area (stage).
+ **
+ ** @section call_site Called from:
+ ** - Screen creators to attach widgets.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for lv_obj_t handle)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @return lv_obj_t*: Pointer to the static content area container.
+ **
+ ** Implementation Steps:
+ ** 1. Return the static @c content_area pointer.
+ ******************************************************************************
  ******************************************************************************/
 lv_obj_t *minigui_get_content_area(void) { return content_area; }

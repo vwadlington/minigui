@@ -1,19 +1,37 @@
+/******************************************************************************
+ ******************************************************************************
+ ** @brief     MiniGUI Home Screen.
+ **
+ **            This header defines the interface for the primary dashboard screen,
+ **            which displays system overview information.
+ **
+ **            @section screen_home.h - Home screen interface.
+ ******************************************************************************
+ ******************************************************************************/
+
 #ifndef SCREEN_HOME_H
 #define SCREEN_HOME_H
 
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
  ******************************************************************************
  ******************************************************************************/
-// None
+// None required for this header
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 #include "lvgl.h"
+
+/******************************************************************************
+ ******************************************************************************
+ ** 3. Project-Specific Components (Local)
+ ******************************************************************************
+ ******************************************************************************/
+// None
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,22 +39,31 @@ extern "C" {
 
 /******************************************************************************
  ******************************************************************************
- * PUBLIC API FUNCTIONS
+ ** PUBLIC API FUNCTIONS
  ******************************************************************************
  ******************************************************************************/
 
-/**
- * @brief Creates the Home screen object
- *
- * @section call_site
- * Called by `minigui_switch_screen` when navigating to the Home page.
- *
- * @section dependencies
- * - `lvgl`: For widget creation.
- *
- * @param parent The `content_area` object from `minigui.c`.
- * @return void (The created objects are children of `parent`).
- */
+/******************************************************************************
+ ******************************************************************************
+ ** @brief Creates the Home screen object.
+ **
+ ** @section call_site Called from:
+ ** - minigui_switch_screen() when navigating to the Home page.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for widget creation)
+ **
+ ** @param parent (lv_obj_t*): The content_area object from minigui.c.
+ **
+ ** @section pointers 
+ ** - parent: Owned by minigui.c, used as the root for screen widgets.
+ **
+ ** @section variables 
+ ** - None (Implementation uses local objects attached to parent)
+ **
+ ** @return void
+ ******************************************************************************
+ ******************************************************************************/
 void create_screen_home(lv_obj_t *parent);
 
 #ifdef __cplusplus

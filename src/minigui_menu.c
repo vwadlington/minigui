@@ -1,21 +1,32 @@
-
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** @brief     MiniGUI Navigation Menu Implementation.
+ **
+ **            This module implements the sliding sidebar menu and the
+ **            background blocker/dimmer. It handles navigation events and
+ **            drawer animations.
+ **
+ **            @section minigui_menu.c - Sidebar menu implementation.
  ******************************************************************************
  ******************************************************************************/
-// None
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
+ ******************************************************************************
+ ******************************************************************************/
+#include <stdint.h>
+
+/******************************************************************************
+ ******************************************************************************
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 // None, lvgl included via minigui_menu.h
 
 /******************************************************************************
  ******************************************************************************
- * 3. Project-Specific Components (Local)
+ ** 3. Project-Specific Components (Local)
  ******************************************************************************
  ******************************************************************************/
 #include "minigui_menu.h"
@@ -28,20 +39,28 @@
  ******************************************************************************/
 
 /******************************************************************************
- * @brief Reference to the sliding drawer object
- * @section scope
- * Internal to minigui_menu.c
- * @section rationale
- * Holds the navigation buttons and slides in from the left.
+ ******************************************************************************
+ ** @brief Reference to the sliding drawer object.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui_menu.c.
+ **
+ ** @section rationale Rationale:
+ ** - Holds the navigation buttons and slides in from the left.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *menu_drawer = NULL;
 
 /******************************************************************************
- * @brief Reference to the full-screen background blocker
- * @section scope
- * Internal to minigui_menu.c
- * @section rationale
- * Dims the main content when menu is open and captures clicks to close the menu.
+ ******************************************************************************
+ ** @brief Reference to the full-screen background blocker.
+ **
+ ** @section scope Internal Scope:
+ ** - Internal to minigui_menu.c.
+ **
+ ** @section rationale Rationale:
+ ** - Dims the main content when menu is open and captures clicks to close it.
+ ******************************************************************************
  ******************************************************************************/
 static lv_obj_t *menu_blocker = NULL;
 
@@ -50,21 +69,29 @@ static lv_obj_t *menu_blocker = NULL;
 // ============================================================================
 
 /******************************************************************************
- * @brief Callback when the background "dimmer" is clicked.
- *
- * @section call_site
- * Assigned to `menu_blocker`'s `LV_EVENT_CLICKED`.
- *
- * @section dependencies
- * - None
- *
- * @param e LVGL event object.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Log the closure action.
- * 2. Call `minigui_menu_toggle()` to close the menu.
+ ******************************************************************************
+ ** @brief Callback when the background "dimmer" is clicked.
+ **
+ ** @section call_site Called from:
+ ** - menu_blocker's LV_EVENT_CLICKED.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (event handling)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables 
+ ** - None
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Log the closure action using LV_LOG_USER.
+ ** 2. Call minigui_menu_toggle() to close the menu.
+ ******************************************************************************
  ******************************************************************************/
 static void blocker_cb(lv_event_t *e) {
     LV_LOG_USER("Menu closed via background dimmer");
@@ -72,26 +99,32 @@ static void blocker_cb(lv_event_t *e) {
 }
 
 /******************************************************************************
- * @brief Callback for navigation buttons inside the drawer.
- *
- * @section call_site
- * Assigned to each navigation button in the drawer (`LV_EVENT_CLICKED`).
- *
- * @section dependencies
- * - `minigui.h`: To switch screens.
- *
- * @param e LVGL event object.
- *
- * @section keys
- * - `user_data`: Cast to `minigui_screen_t` to set the target screen.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Retrieve the target screen ID from the event's user data.
- * 2. Log the navigation action.
- * 3. Call `minigui_switch_screen` to change the main view.
- * 4. Call `minigui_menu_toggle()` to close the drawer.
+ ******************************************************************************
+ ** @brief Callback for navigation buttons inside the drawer.
+ **
+ ** @section call_site Called from:
+ ** - Individual navigation buttons in the drawer (LV_EVENT_CLICKED).
+ **
+ ** @section dependencies Required Headers:
+ ** - minigui.h (for minigui_switch_screen)
+ **
+ ** @param e (lv_event_t*): LVGL event object.
+ **
+ ** @section pointers 
+ ** - e: Owned by LVGL.
+ **
+ ** @section variables Internal Variables:
+ ** - @c target (minigui_screen_t): ID of the destination screen.
+ ** - @c screen_names (const char*[]): Human-readable names for logging.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Retrieve the target screen ID from the event's user data.
+ ** 2. Log the navigation action.
+ ** 3. Call minigui_switch_screen to change the main view.
+ ** 4. Call minigui_menu_toggle() to close the drawer.
+ ******************************************************************************
  ******************************************************************************/
 static void nav_btn_cb(lv_event_t *e) {
     minigui_screen_t target = (minigui_screen_t)(uintptr_t)lv_event_get_user_data(e);
@@ -112,21 +145,34 @@ static void nav_btn_cb(lv_event_t *e) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Initializes the global navigation menu.
- *
- * @section call_site
- * Called from `minigui_init()`.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Get the top layer of the screen to ensure menu floats above everything.
- * 2. Create the `menu_blocker`: full-screen, semi-transparent black, hidden by default.
- * 3. Attach `blocker_cb` to the blocker to handle outside clicks.
- * 4. Create the `menu_drawer`: 250px wide, 100% height, positioned off-screen (-250px).
- * 5. Define the list of navigation buttons and their corresponding screen IDs.
- * 6. Loop through the list to create buttons inside the drawer.
- * 7. For each button, create a label and attach `nav_btn_cb` with the screen ID as user data.
+ ******************************************************************************
+ ** @brief Initializes the global navigation menu.
+ **
+ ** @section call_site Called from:
+ ** - minigui_init() during system startup.
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for widget creation)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None (Static handles stored in file scope)
+ **
+ ** @section variables Internal Variables:
+ ** - @c top (lv_obj_t*): Handle to the top screen layer.
+ ** - @c btn_texts (const char*[]): Labels for the menu buttons.
+ ** - @c screen_ids (minigui_screen_t[]): Target IDs for the buttons.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Get the top layer of the screen for floating menu support.
+ ** 2. Create and configure the @c menu_blocker dimmer object.
+ ** 3. Create and configure the @c menu_drawer sidebar.
+ ** 4. Loop through navigation definitions to populate buttons in the drawer.
+ ** 5. Attach nav_btn_cb to each button with the corresponding screen ID.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_menu_init(void) {
     // We use the top layer so the menu slides OVER the status bar
@@ -172,21 +218,35 @@ void minigui_menu_init(void) {
 }
 
 /******************************************************************************
- * @brief Toggles the visibility of the navigation menu.
- *
- * @return void
- *
- * Implementation Steps
- * 1. Check if drawer or blocker are invalid; return if so.
- * 2. Check the current state (hidden/visible) via the blocker's hidden flag.
- * 3. Initialize an animation object for the drawer's X position.
- * 4. If hidden (opening):
- *    - Remove hidden flag from blocker.
- *    - Animate drawer from -250 to 0.
- * 5. If visible (closing):
- *    - Add hidden flag to blocker.
- *    - Animate drawer from 0 to -250.
- * 6. Start the animation.
+ ******************************************************************************
+ ** @brief Toggles the visibility of the navigation menu.
+ **
+ ** @section call_site Called from:
+ ** - Hamburger button (open).
+ ** - Blocker/nav buttons (close).
+ **
+ ** @section dependencies Required Headers:
+ ** - lvgl.h (for animations)
+ **
+ ** @param None
+ **
+ ** @section pointers 
+ ** - None
+ **
+ ** @section variables Internal Variables:
+ ** - @c is_hidden (bool): Current visibility state of the menu.
+ ** - @c a (lv_anim_t): Animation descriptor for sliding the drawer.
+ **
+ ** @return void
+ **
+ ** Implementation Steps:
+ ** 1. Validate drawer and blocker handles.
+ ** 2. Determine visibility state via hidden flag on blocker.
+ ** 3. Configure a 300ms ease-out animation for the drawer's X position.
+ ** 4. If opening: reveal blocker and animate drawer to 0.
+ ** 5. If closing: hide blocker and animate drawer to -250.
+ ** 6. Start the animation.
+ ******************************************************************************
  ******************************************************************************/
 void minigui_menu_toggle(void) {
     if (!menu_drawer || !menu_blocker) return;

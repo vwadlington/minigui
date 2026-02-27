@@ -1,16 +1,29 @@
+/******************************************************************************
+ ******************************************************************************
+ ** @brief     MiniGUI Public API.
+ **
+ **            This header defines the interface for the MiniGUI component,
+ **            including screen types, data structures for logs and system stats,
+ **            and the public functions to initialize and control the UI.
+ **
+ **            @section minigui.h - Public interface definitions.
+ ******************************************************************************
+ ******************************************************************************/
+
 #ifndef MINIGUI_H
 #define MINIGUI_H
 
 /******************************************************************************
  ******************************************************************************
- * 1. ESP-IDF / FreeRTOS Core (Framework)
+ ** 1. ESP-IDF / FreeRTOS Core (Framework)
  ******************************************************************************
  ******************************************************************************/
 #include <stdint.h>
+#include <stddef.h>
 
 /******************************************************************************
  ******************************************************************************
- * 2. Managed Espressif Components (External Managed Components)
+ ** 2. Managed Espressif Components (External Managed Components)
  ******************************************************************************
  ******************************************************************************/
 #include "lvgl.h"
@@ -18,6 +31,13 @@
 #if (LVGL_VERSION_MAJOR != 9) || (LVGL_VERSION_MINOR != 4) || (LVGL_VERSION_PATCH != 0)
     #error "minigui requires LVGL version 9.4.0. Please check your LVGL submodule version."
 #endif
+
+/******************************************************************************
+ ******************************************************************************
+ ** 3. Project-Specific Components (Local)
+ ******************************************************************************
+ ******************************************************************************/
+// None (minigui.h is the entry point for this component)
 
 #ifdef __cplusplus
 extern "C" {
