@@ -92,6 +92,11 @@ MiniGUI is designed to be environment-aware. It handles logging through a **Log 
 
 This architecture ensures that `minigui` remains a clean, standalone component that doesn't need its source code modified when switching between a simulator and real hardware.
 
+## 🧵 Thread Safety
+
+MiniGUI is designed to be **Thread-Safe** for external callers. The core UI API functions (`minigui_init`, `minigui_switch_screen`, and `minigui_set_time_provider`) internally utilize LVGL's `lv_lock()` and `lv_unlock()`.
+This allows you to safely trigger UI updates from external RTOS tasks (e.g., an MQTT callback or hardware event trigger) without causing reentrancy glitches or memory corruption in the main LVGL drawing loop.
+
 ## 🛠 Public API
 
 ### `minigui_init()`

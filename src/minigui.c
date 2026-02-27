@@ -209,32 +209,48 @@ static void sync_square_size_cb(lv_event_t * e) {
 // ============================================================================
 
 /******************************************************************************
- * @brief Initialize the UI manager
+ ******************************************************************************
+ * @brief Initialize the UI manager dynamically and set up flex layouts.
  *
  * @section call_site
  * Called from `app_main` or similar entry point.
  *
  * @section dependencies
  * - `minigui_menu.h`: For menu initialization.
- * - `lvgl`: For all UI creation.
+ * - `lvgl`: For all UI creation and thread-safe locks (`lv_lock`).
+ *
+ * @param None
+ *
+ * @section pointers
+ * - None
+ *
+ * @section variables
+ * - `scr`: Pointer to the active LVGL screen. Rationale: Root parent for UI elements.
+ * - `btn_menu`: Pointer to hamburger button. Rationale: Toggles the sideline menu.
+ * - `label_menu`: Pointer to hamburger icon label. Rationale: Displays LV_SYMBOL_LIST.
  *
  * @return void
  *
  * Implementation Steps
- * 1. Initialize the side menu system.
- * 2. Configure the active screen background to black.
- * 3. Create the `main_container` with a vertical flex layout to hold status bar and content.
- * 4. Create the `status_bar` with a horizontal flex layout.
- * 5. Create the hamburger button and attach the square-size sync callback.
- * 6. Create the title label with flex-grow to push the clock to the right.
- * 7. Create the clock label and perform an initial update.
- * 8. Create a 1-second timer to keep the clock updated.
- * 9. Create the `content_area` container which will hold screen-specific widgets.
- * 10. Default to the Home screen by calling `minigui_switch_screen`.
+ * 1. Log initialization start.
+ * 2. Acquire LVGL lock (`lv_lock`) for thread safety.
+ * 3. Initialize the side menu system.
+ * 4. Configure the active screen background to black.
+ * 5. Create the `main_container` with a vertical flex layout to hold status bar and content.
+ * 6. Create the `status_bar` with a horizontal flex layout.
+ * 7. Create the hamburger button and attach the square-size sync callback.
+ * 8. Create the title label with flex-grow to push the clock to the right.
+ * 9. Create the clock label and perform an initial update.
+ * 10. Create a 1-second timer to keep the clock updated.
+ * 11. Create the `content_area` container which will hold screen-specific widgets.
+ * 12. Release LVGL lock (`lv_unlock`).
+ * 13. Default to the Home screen by calling `minigui_switch_screen`.
  ******************************************************************************/
 void minigui_init(void) {
     // Using LVGL native logging instead of ESP_LOG
     LV_LOG_INFO("MiniGUI: Initializing nested flex layout...");
+
+    lv_lock();
 
     minigui_menu_init();
 
@@ -311,32 +327,48 @@ void minigui_init(void) {
     lv_obj_set_style_radius(content_area, 0, 0);
     lv_obj_set_style_pad_all(content_area, 0, 0);
 
+    lv_unlock();
+
     minigui_switch_screen(MINIGUI_SCREEN_HOME);
 }
 
 /******************************************************************************
- * @brief Switch to a specific screen
+ ******************************************************************************
+ * @brief Switch the active screen rendered in the main content area.
  *
  * @section call_site
- * Called internally on init, or by the menu when a user selects a page.
+ * Called internally on init, or by the menu when a user selects a page, or externally.
  *
- * @param screen_type The ID of the screen to switch to.
+ * @section dependencies
+ * - `lvgl`: For UI cleanup, creation, and thread-safe locking.
+ * - `screens/*`: Implementations for each screen.
+ *
+ * @param screen_type The enum ID of the screen to switch to (0 to MINIGUI_SCREEN_COUNT-1).
+ *
+ * @section pointers
+ * - None
+ *
+ * @section variables
+ * - `titles`: Array of string literals. Rationale: Mappings from enum ID to display title.
  *
  * @return void
  *
  * Implementation Steps
  * 1. Validate the screen ID and existence of `content_area`.
  * 2. Log the screen switch event.
- * 3. Clear all children from `content_area` to remove the old screen.
- * 4. Reset flex/scroll styles on `content_area`.
- * 5. Update the title label based on the new screen ID.
- * 6. Invoke the specific screen creator function to build the new UI.
+ * 3. Acquire LVGL lock (`lv_lock`) to prevent concurrent drawing issues.
+ * 4. Clear all children from `content_area` to remove the old screen.
+ * 5. Reset flex/scroll styles on `content_area`.
+ * 6. Update the title label based on the new screen ID.
+ * 7. Invoke the specific screen creator function to build the new UI.
+ * 8. Release LVGL lock (`lv_unlock`).
  ******************************************************************************/
 void minigui_switch_screen(minigui_screen_t screen_type) {
     if (screen_type >= MINIGUI_SCREEN_COUNT || !content_area) return;
 
     LV_LOG_INFO("MiniGUI: Switching to screen ID %d", screen_type);
 
+    lv_lock();
     lv_obj_clean(content_area);
     lv_obj_set_style_flex_flow(content_area, 0, 0);
     lv_obj_set_scrollbar_mode(content_area, LV_SCROLLBAR_MODE_AUTO);
@@ -347,6 +379,7 @@ void minigui_switch_screen(minigui_screen_t screen_type) {
     if (screen_creators[screen_type]) {
         screen_creators[screen_type](content_area);
     }
+    lv_unlock();
 }
 
 // --- Bridge Functions ---
@@ -410,18 +443,37 @@ void minigui_register_network_status_provider(minigui_network_status_provider_t 
 }
 
 /******************************************************************************
- * @brief Register a time provider for the status bar clock
+ ******************************************************************************
+ * @brief Register a time provider for the status bar clock.
  *
- * @param provider The function pointer to retrieve formatted time
+ * @section call_site
+ * Called during initialization to provide real-time clock data (e.g., from SNTP).
+ *
+ * @section dependencies
+ * - `lvgl`: For thread-safe locking.
+ *
+ * @param provider The function pointer to retrieve formatted time.
+ *
+ * @section pointers
+ * - `provider`: Owned by caller, callback function pointer.
+ *
+ * @section variables
+ * - None
+ *
+ * @return void
  *
  * Implementation Steps
- * 1. Store the provider.
- * 2. Immediately update the clock via `update_clock_cb` to reflect new source.
+ * 1. Store the provider globally.
+ * 2. Acquire LVGL lock (`lv_lock`).
+ * 3. Immediately update the clock via `update_clock_cb` to reflect new source.
+ * 4. Release LVGL lock (`lv_unlock`).
  ******************************************************************************/
 void minigui_set_time_provider(minigui_time_provider_t provider) {
     global_time_provider = provider;
     // Update immediately if possible
+    lv_lock();
     if (lbl_clock) update_clock_cb(NULL);
+    lv_unlock();
 }
 
 /******************************************************************************

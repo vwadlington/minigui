@@ -153,16 +153,34 @@ typedef void (*minigui_network_status_provider_t)(minigui_network_status_t *stat
  ******************************************************************************
  ******************************************************************************/
 
-/**
- * @brief Initialize the UI manager
+/******************************************************************************
+ ******************************************************************************
+ * @brief Initialize the UI manager dynamically and set up flex layouts.
  *
  * @section call_site
- * Call this function from the application setup (e.g., `app_main`) after LVGL is initialized.
+ * Called from `app_main` or similar entry point.
  *
  * @section dependencies
- * - `minigui_menu.h`: For initializing the menu system.
- * - `lvgl.h`: Core graphics processing.
- */
+ * - `minigui_menu.h`: For menu initialization.
+ * - `lvgl.h`: Core graphics processing and thread-safe locking.
+ *
+ * @param None
+ *
+ * @section pointers
+ * - None
+ *
+ * @section variables
+ * - None
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Log initialization start.
+ * 2. Acquire LVGL lock (`lv_lock`) for thread safety.
+ * 3. Initialize the UI components and flex layouts.
+ * 4. Release LVGL lock (`lv_unlock`).
+ * 5. Default to the Home screen by calling `minigui_switch_screen`.
+ ******************************************************************************/
 void minigui_init(void);
 
 /**
@@ -175,24 +193,60 @@ void minigui_init(void);
  */
 void minigui_set_log_provider(minigui_log_provider_t provider);
 
-/**
- * @brief Register a time provider for the status bar clock
+/******************************************************************************
+ ******************************************************************************
+ * @brief Register a time provider for the status bar clock.
  *
  * @section call_site
  * Called during initialization to provide real-time clock data (e.g. from SNTP).
  *
- * @param provider The function pointer to retrieve formatted time
- */
+ * @section dependencies
+ * - `lvgl.h`: For thread-safe locking.
+ *
+ * @param provider The function pointer to retrieve formatted time.
+ *
+ * @section pointers
+ * - `provider`: Owned by caller, callback function pointer.
+ *
+ * @section variables
+ * - None
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Store the provider globally.
+ * 2. Acquire LVGL lock (`lv_lock`).
+ * 3. Immediately update the clock via `update_clock_cb`.
+ * 4. Release LVGL lock (`lv_unlock`).
+ ******************************************************************************/
 void minigui_set_time_provider(minigui_time_provider_t provider);
 
-/**
- * @brief Switch to a specific screen
+/******************************************************************************
+ ******************************************************************************
+ * @brief Switch the active screen rendered in the main content area.
  *
  * @section call_site
- * Called by the menu system or navigation buttons to change the active view.
+ * Called by the menu system, navigation buttons, or externally to change the active view.
+ *
+ * @section dependencies
+ * - `lvgl.h`: Core graphics processing and thread-safe locking.
  *
  * @param screen The screen enum to load
- */
+ *
+ * @section pointers
+ * - None
+ *
+ * @section variables
+ * - None
+ *
+ * @return void
+ *
+ * Implementation Steps
+ * 1. Validate the screen ID.
+ * 2. Acquire LVGL lock (`lv_lock`) to prevent concurrent drawing issues.
+ * 3. Render the new screen in the content area.
+ * 4. Release LVGL lock (`lv_unlock`).
+ ******************************************************************************/
 void minigui_switch_screen(minigui_screen_t screen);
 
 /**
