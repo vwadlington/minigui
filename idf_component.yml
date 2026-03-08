@@ -1,0 +1,7 @@
+dependencies:
+  lvgl/lvgl:
+    version: "==9.4.0"
+description: "MiniGUI component for ESP-IDF"
+url: "https://github.com/vwadlington/minigui"
+maintainer: "vwadlington"
+license: "MIT"
